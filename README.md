@@ -35,23 +35,45 @@ Linux:
 ### Generate PATH export
 
 ```bash
-# Auto-detect shell and OS
+# Auto-detect shell and OS (default command)
 pathuni
+pathuni print
 
 # Specify shell explicitly
-pathuni --shell=fish
-pathuni --shell=powershell
+pathuni print --shell=fish
+pathuni --shell=powershell  # shortcut: global flags work on root command
 ```
 
 ### Preview what will be included
 
 ```bash
-pathuni --eval
+pathuni dry-run
+pathuni n  # shortcut
+
+# With specific shell
+pathuni dry-run --shell=bash
 ```
 
-Output:
+### Inspect current PATH
+
+```bash
+# Show all current PATH entries
+pathuni dump
+pathuni d  # shortcut
+
+# Show only what pathuni would add
+pathuni dump --include=pathuni
+
+# Different output formats
+pathuni dump --format=json
+pathuni dump --format=yaml --include=pathuni
+pathuni d -f json -i all  # using shortcuts and short flags
+```
+
+**Example dry-run output:**
 
 ```
+$ pathuni dry-run
 Evaluating: /Users/you/.config/pathuni/my_paths.yaml
 
 OS    : macOS
@@ -62,18 +84,38 @@ Included Paths:
   [+] /opt/homebrew/bin
   [+] /opt/homebrew/sbin
 
-Skipped (not found):
-  [-] /some/missing/path
-
 3 paths included
-1 skipped
+0 skipped
+
+Output:
+  export PATH="/Users/you/.local/bin:/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
+
+To apply: run 'pathuni --shell=zsh'
+```
+
+**Example dump outputs:**
+
+```bash
+$ pathuni dump --include=pathuni
+/Users/you/.local/bin
+/opt/homebrew/bin
+/opt/homebrew/sbin
+
+$ pathuni dump --format=yaml --include=pathuni
+PATH:
+    - /Users/you/.local/bin
+    - /opt/homebrew/bin
+    - /opt/homebrew/sbin
+
+$ pathuni dump --format=json --include=all
+{"PATH":["/Users/you/.local/bin","/opt/homebrew/bin",...]}
 ```
 
 ## Supported Shells
 
-- bash, zsh, sh (uses `export PATH=`)
-- fish (uses `set -gx PATH`)
-- powershell (uses `$env:PATH =`)
+- **bash|zsh|sh** - uses `export PATH=`
+- **fish** - uses `set -gx PATH`
+- **powershell** - uses `$env:PATH =`
 
 ## Why Pathuni?
 
@@ -94,8 +136,9 @@ Areas that could use help:
 ## Development
 
 ```bash
-make build    # Build binary
-make test     # Run tests
+make build    # Build binary to bin/pathuni
+make test     # Run all tests
 make clean    # Clean build artifacts
-make dev      # Quick build + eval
+make dev      # Quick build + run evaluation preview
+make install  # Copy binary to ~/.local/bin
 ```
