@@ -1,16 +1,119 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
+
+	"github.com/spf13/cobra"
 )
 
-func printVersion() {
-	fmt.Print(`pathuni 0.1
+var Version = "dev"
+
+var (
+	shell        string
+	config       string
+	platformOnly bool
+	// dump command flags
+	dumpFormat  string
+	dumpInclude string
+)
+
+func getConfigPath() string {
+	if config != "" {
+		return config
+	}
+	home, _ := os.UserHomeDir()
+	return filepath.Join(home, ".config", "pathuni", "my_paths.yaml")
+}
+
+func getOSName() string {
+	switch runtime.GOOS {
+	case "darwin":
+		return "macOS"
+	case "linux":
+		return "Linux"
+	default:
+		return ""
+	}
+}
+
+func getShellName() (string, bool) {
+	shellName := strings.ToLower(shell)
+	inferred := false
+	if shellName == "" {
+		if shellEnv := os.Getenv("SHELL"); shellEnv != "" {
+			shellName = strings.ToLower(filepath.Base(shellEnv))
+			inferred = true
+		} else {
+			shellName = "bash"
+			inferred = true
+		}
+	}
+	return shellName, inferred
+}
+
+var printCmd = &cobra.Command{
+	Use:     "print",
+	Aliases: []string{"p"},
+	Short:   "Generate PATH export command (default mode)",
+	Run: func(cmd *cobra.Command, args []string) {
+		runPrint()
+	},
+}
+
+var dryRunCmd = &cobra.Command{
+	Use:     "dry-run",
+	Aliases: []string{"n"},
+	Short:   "Show what paths would be included/skipped",
+	Run: func(cmd *cobra.Command, args []string) {
+		runDryRun()
+	},
+}
+
+var dumpCmd = &cobra.Command{
+	Use:     "dump",
+	Aliases: []string{"d"},
+	Short:   "Dump current PATH entries in various formats",
+	Run: func(cmd *cobra.Command, args []string) {
+		runDump()
+	},
+}
+
+var rootCmd = &cobra.Command{
+	Use:   "pathuni",
+	Short: "Cross-platform PATH management for dotfiles",
+	Long: `pathuni - Cross-platform PATH management for dotfiles
+
+Generate shell-specific PATH export commands from a YAML config file.
+Validates that directories exist before including them.`,
+	Version: Version,
+	Run: func(cmd *cobra.Command, args []string) {
+		// Default to print command
+		runPrint()
+	},
+}
+
+func init() {
+	// Add persistent flags (available to all commands)
+	rootCmd.PersistentFlags().StringVarP(&shell, "shell", "s", "", "Shell type: bash|zsh|sh|fish|powershell (auto-detected if not specified)")
+	// If building for Windows in the future, will need to be something like %USERPROFILE%\AppData\Local\pathuni\my_paths.yaml
+	rootCmd.PersistentFlags().StringVarP(&config, "config", "c", "", "Path to config file (default: ~/.config/pathuni/my_paths.yaml)")
+	rootCmd.PersistentFlags().BoolVarP(&platformOnly, "platform-only", "p", false, "Include only platform-specific paths, skip 'All' section")
+
+	// Add subcommands
+	rootCmd.AddCommand(printCmd)
+	rootCmd.AddCommand(dryRunCmd)
+	rootCmd.AddCommand(dumpCmd)
+
+	// Add flags specific to dump command
+	dumpCmd.Flags().StringVarP(&dumpFormat, "format", "f", "plain", "Output format: plain|json|yaml")
+	dumpCmd.Flags().StringVarP(&dumpInclude, "include", "i", "all", "Paths to include: all|pathuni")
+
+	// Custom version template
+	rootCmd.SetVersionTemplate(`pathuni ` + Version + `
 Copyright (C) 2025 Pedro Innecco <https://pedroinnecco.com>
 
 This program is free software: you can redistribute it and/or modify
@@ -26,67 +129,9 @@ Source: https://github.com/pmdci/pathuni
 }
 
 func main() {
-	shellFlag := flag.String("shell", "", "")
-	evalFlag := flag.Bool("eval", false, "")
-	configFlag := flag.String("config", "", "")
-	versionFlag := flag.Bool("version", false, "")
-	
-	flag.Usage = printUsage
-	flag.Parse()
-	
-	if *versionFlag {
-		printVersion()
-		return
-	}
-
-	home, _ := os.UserHomeDir()
-	configPath := *configFlag
-	if configPath == "" {
-		configPath = filepath.Join(home, ".config", "pathuni", "my_paths.yaml")
-	}
-
-	var osName string
-	switch runtime.GOOS {
-	case "darwin":
-		osName = "macOS"
-	case "linux":
-		osName = "Linux"
-	default:
-		osName = ""
-	}
-
-	shellName := strings.ToLower(*shellFlag)
-	inferred := false
-	if shellName == "" {
-		if shellEnv := os.Getenv("SHELL"); shellEnv != "" {
-			shellName = strings.ToLower(filepath.Base(shellEnv))
-			inferred = true
-		} else {
-			shellName = "bash"
-			inferred = true
-		}
-	}
-
-	if !shellIsValid(shellName) {
-		fmt.Fprintf(os.Stderr, "Unsupported shell '%s'. Supported shells: %s\n", shellName, strings.Join(shellNames(), ", "))
+	if err := rootCmd.Execute(); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
-
-	if *evalFlag {
-		err := PrintEvaluationReport(configPath, osName, shellName, inferred)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(1)
-		}
-		return
-	}
-
-	paths, err := collectValidPaths(configPath, osName)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error reading config file: %v\n", err)
-		os.Exit(1)
-	}
-
-	fmt.Println(renderers[shellName](paths))
 }
 

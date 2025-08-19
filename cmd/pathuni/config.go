@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
@@ -14,7 +15,7 @@ type Config struct {
 	MacOS []string `yaml:"macOS"`
 }
 
-func collectValidPaths(configPath, platform string) ([]string, error) {
+func collectValidPaths(configPath, platform string, platformOnly bool) ([]string, error) {
 	data, err := os.ReadFile(configPath)
 	if err != nil {
 		return nil, err
@@ -25,7 +26,9 @@ func collectValidPaths(configPath, platform string) ([]string, error) {
 	}
 
 	var rawPaths []string
-	rawPaths = append(rawPaths, cfg.All...)
+	if !platformOnly {
+		rawPaths = append(rawPaths, cfg.All...)
+	}
 	switch platform {
 	case "Linux":
 		rawPaths = append(rawPaths, cfg.Linux...)
@@ -43,7 +46,7 @@ func collectValidPaths(configPath, platform string) ([]string, error) {
 	return paths, nil
 }
 
-func EvaluateConfig(configPath, platform string) (validPaths []string, skippedPaths []string, err error) {
+func EvaluateConfig(configPath, platform string, platformOnly bool) (validPaths []string, skippedPaths []string, err error) {
 	data, err := os.ReadFile(configPath)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to read config: %w", err)
@@ -54,7 +57,9 @@ func EvaluateConfig(configPath, platform string) (validPaths []string, skippedPa
 	}
 
 	var rawPaths []string
-	rawPaths = append(rawPaths, cfg.All...)
+	if !platformOnly {
+		rawPaths = append(rawPaths, cfg.All...)
+	}
 	switch platform {
 	case "Linux":
 		rawPaths = append(rawPaths, cfg.Linux...)
@@ -75,8 +80,8 @@ func EvaluateConfig(configPath, platform string) (validPaths []string, skippedPa
 	return validPaths, skippedPaths, nil
 }
 
-func PrintEvaluationReport(configPath, platform, shell string, inferred bool) error {
-	valid, skipped, err := EvaluateConfig(configPath, platform)
+func PrintEvaluationReport(configPath, platform, shell string, inferred bool, platformOnly bool) error {
+	valid, skipped, err := EvaluateConfig(configPath, platform, platformOnly)
 	if err != nil {
 		return err
 	}
@@ -102,7 +107,13 @@ func PrintEvaluationReport(configPath, platform, shell string, inferred bool) er
 	}
 
 	fmt.Printf("\n%d paths included\n", len(valid))
-	fmt.Printf("%d skipped\n\n", len(skipped))
+	fmt.Printf("%d skipped", len(skipped))
+	if platformOnly {
+		fmt.Printf("*\n* Not including paths from 'All' section due to --platform-only\n")
+	} else {
+		fmt.Printf("\n")
+	}
+	fmt.Printf("\n")
 	
 	if len(valid) > 0 {
 		fmt.Println("Output:")
@@ -111,4 +122,21 @@ func PrintEvaluationReport(configPath, platform, shell string, inferred bool) er
 	
 	fmt.Printf("To apply: run 'pathuni --shell=%s'\n", shell)
 	return nil
+}
+
+func runDryRun() {
+	configPath := getConfigPath()
+	osName := getOSName()
+	shellName, inferred := getShellName()
+
+	if !shellIsValid(shellName) {
+		fmt.Fprintf(os.Stderr, "Unsupported shell '%s'. Supported shells: %s\n", shellName, strings.Join(shellNames(), ", "))
+		os.Exit(1)
+	}
+
+	err := PrintEvaluationReport(configPath, osName, shellName, inferred, platformOnly)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
 }

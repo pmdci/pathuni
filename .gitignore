@@ -28,6 +28,11 @@ dist/
 *.swo
 *~
 
+# Internal AI-related stuff
+.claude/
+.llm/
+CLAUDE.md
+
 # OS generated files
 .DS_Store
 .DS_Store?

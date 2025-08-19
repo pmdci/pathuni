@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"sort"
 	"strings"
 )
@@ -44,4 +45,23 @@ func renderFish(paths []string) string {
 
 func renderPwsh(paths []string) string {
 	return fmt.Sprintf("$env:PATH = \"%s:$env:PATH\"", strings.Join(paths, ":"))
+}
+
+func runPrint() {
+	configPath := getConfigPath()
+	osName := getOSName()
+	shellName, _ := getShellName()
+
+	if !shellIsValid(shellName) {
+		fmt.Fprintf(os.Stderr, "Unsupported shell '%s'. Supported shells: %s\n", shellName, strings.Join(shellNames(), ", "))
+		os.Exit(1)
+	}
+
+	paths, err := collectValidPaths(configPath, osName, platformOnly)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error reading config file: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Println(renderers[shellName](paths))
 }

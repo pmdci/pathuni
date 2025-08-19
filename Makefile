@@ -2,7 +2,7 @@
 
 build:
 	mkdir -p bin
-	go build -o bin/pathuni ./cmd/pathuni
+	go build -ldflags="-X main.Version=$$(git describe --tags --always --dirty)" -o bin/pathuni ./cmd/pathuni
 
 clean:
 	rm -rf bin/
