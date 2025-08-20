@@ -419,6 +419,8 @@ func (n *NvmManager) generateBashWrapper() string {
             [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" --no-use
             nvm "$@"
             local exit_code=$?
+            export NVM_BIN   # ensure updated value is visible
+            export NVM_DIR   # optional, but safe for completeness
             eval "$(pathuni init --with-wrappers)"
             return $exit_code
             ;;
