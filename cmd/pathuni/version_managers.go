@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -12,6 +14,111 @@ import (
 func pathExists(path string) bool {
 	info, err := os.Stat(path)
 	return err == nil && info.IsDir()
+}
+
+// expandUser expands "~" and env vars
+func expandUser(p string) string {
+	if p == "" {
+		return p
+	}
+	p = os.ExpandEnv(p)
+	if len(p) == 0 || p[0] != '~' {
+		return p
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return p
+	}
+	return filepath.Join(home, strings.TrimPrefix(p, "~"))
+}
+
+// semver represents a semantic version for proper sorting
+type semver struct {
+	maj, min, pat int
+	raw           string
+}
+
+// parseSemver parses a directory name into semver struct
+func parseSemver(dirName string) (semver, bool) {
+	s := strings.TrimPrefix(dirName, "v")
+	parts := strings.Split(s, ".")
+	if len(parts) < 3 {
+		return semver{}, false
+	}
+	ma, e1 := strconv.Atoi(parts[0])
+	mi, e2 := strconv.Atoi(parts[1])
+	pa, e3 := strconv.Atoi(parts[2])
+	if e1 != nil || e2 != nil || e3 != nil {
+		return semver{}, false
+	}
+	return semver{ma, mi, pa, "v" + s}, true
+}
+
+// listInstalled returns all installed Node versions sorted by semver
+func listInstalled(nvmDir string) ([]semver, error) {
+	root := filepath.Join(nvmDir, "versions", "node")
+	ents, err := os.ReadDir(root)
+	if err != nil {
+		return nil, err
+	}
+	out := []semver{}
+	for _, e := range ents {
+		if !e.IsDir() {
+			continue
+		}
+		if v, ok := parseSemver(e.Name()); ok {
+			out = append(out, v)
+		}
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].maj != out[j].maj {
+			return out[i].maj < out[j].maj
+		}
+		if out[i].min != out[j].min {
+			return out[i].min < out[j].min
+		}
+		return out[i].pat < out[j].pat
+	})
+	return out, nil
+}
+
+// highestInstalled returns the highest installed version
+func highestInstalled(nvmDir string) (string, error) {
+	vs, err := listInstalled(nvmDir)
+	if err != nil || len(vs) == 0 {
+		return "", fmt.Errorf("no installed versions")
+	}
+	return vs[len(vs)-1].raw, nil
+}
+
+// highestForMajor returns the highest installed version for a specific major
+func highestForMajor(nvmDir string, major int) (string, error) {
+	vs, err := listInstalled(nvmDir)
+	if err != nil {
+		return "", err
+	}
+	cand := []semver{}
+	for _, v := range vs {
+		if v.maj == major {
+			cand = append(cand, v)
+		}
+	}
+	if len(cand) == 0 {
+		return "", fmt.Errorf("no version for major %d", major)
+	}
+	return cand[len(cand)-1].raw, nil
+}
+
+// resolveAliasFile reads alias file if present
+func resolveAliasFile(nvmDir, name string) (string, bool) {
+	p := filepath.Join(nvmDir, "alias", name)
+	if b, err := os.ReadFile(p); err == nil {
+		tgt := strings.TrimSpace(string(b))
+		if tgt != "" {
+			return tgt, true
+		}
+	}
+	return "", false
 }
 
 // PathCleaner defines the contract for cleaning version manager paths from PATH
@@ -68,6 +175,11 @@ func (n *NvmManager) Detect() bool {
 
 // ResolvePath determines the current active nvm node version path
 func (n *NvmManager) ResolvePath() (string, error) {
+	// Prefer NVM_BIN if set - this reflects what nvm actually chose
+	if nb := strings.TrimSpace(os.Getenv("NVM_BIN")); nb != "" && pathExists(nb) {
+		return nb, nil
+	}
+
 	nvmDir := n.resolveNvmDir()
 	if nvmDir == "" {
 		return "", fmt.Errorf("nvm directory not found")
@@ -109,8 +221,10 @@ func (n *NvmManager) GetPathPattern() string {
 		// No valid nvm directory found - can't clean anything
 		return ""
 	}
-	escaped := regexp.QuoteMeta(nvmHome)
-	return escaped + `/versions/node/[^/]+/bin`
+	base := regexp.QuoteMeta(nvmHome)
+	// Match either "/" or "\\" as separators for cross-platform support
+	sep := `(?:[/\\])`
+	return base + sep + `versions` + sep + `node` + sep + `[^/\\]+` + sep + `bin`
 }
 
 // CleanPath removes all nvm paths from the given PATH string
@@ -124,7 +238,7 @@ func (n *NvmManager) CleanPath(currentPath string) string {
 	re := regexp.MustCompile(pattern)
 	
 	// Split PATH into individual entries
-	pathEntries := strings.Split(currentPath, ":")
+	pathEntries := strings.Split(currentPath, string(os.PathListSeparator))
 	var cleanedEntries []string
 	
 	// Filter out nvm paths
@@ -134,7 +248,7 @@ func (n *NvmManager) CleanPath(currentPath string) string {
 		}
 	}
 	
-	return strings.Join(cleanedEntries, ":")
+	return strings.Join(cleanedEntries, string(os.PathListSeparator))
 }
 
 // buildCleanPath creates a clean PATH by removing old version manager paths and adding new ones
@@ -162,7 +276,7 @@ func buildCleanPath(staticPaths []string, versionManagers []VersionManager, vers
 	
 	// Add cleaned system PATH entries
 	if cleanedPath != "" {
-		systemPaths := strings.Split(cleanedPath, ":")
+		systemPaths := strings.Split(cleanedPath, string(os.PathListSeparator))
 		allPaths = append(allPaths, systemPaths...)
 	}
 	
@@ -179,10 +293,18 @@ func buildCleanPath(staticPaths []string, versionManagers []VersionManager, vers
 	return uniquePaths
 }
 
-// resolveNvmDir finds the nvm home directory using the directories array
+// resolveNvmDir finds the nvm home directory, preferring NVM_DIR env var
 func (n *NvmManager) resolveNvmDir() string {
+	// Prefer NVM_DIR environment variable first
+	if env := os.Getenv("NVM_DIR"); env != "" {
+		if p := expandUser(env); pathExists(p) {
+			return p
+		}
+	}
+	
+	// Fall back to config directories
 	for _, dir := range n.config.Directories {
-		if expanded := os.ExpandEnv(dir); expanded != "" && pathExists(expanded) {
+		if expanded := expandUser(dir); expanded != "" && pathExists(expanded) {
 			return expanded
 		}
 	}
@@ -191,16 +313,14 @@ func (n *NvmManager) resolveNvmDir() string {
 
 // findActiveVersion determines which node version is currently active
 func (n *NvmManager) findActiveVersion(nvmDir string) (string, error) {
-	// Try .nvmrc in current directory first
-	if version := n.readNvmrc("."); version != "" {
+	// Try .nvmrc with upward search
+	if version := n.readNvmrcUpwards("."); version != "" {
 		return n.resolveToFullVersion(nvmDir, version)
 	}
 
 	// Try default alias
-	defaultAlias := filepath.Join(nvmDir, "alias", "default")
-	if content, err := os.ReadFile(defaultAlias); err == nil {
-		version := strings.TrimSpace(string(content))
-		if version != "" {
+	if content, err := os.ReadFile(filepath.Join(nvmDir, "alias", "default")); err == nil {
+		if version := strings.TrimSpace(string(content)); version != "" {
 			return n.resolveToFullVersion(nvmDir, version)
 		}
 	}
@@ -208,48 +328,56 @@ func (n *NvmManager) findActiveVersion(nvmDir string) (string, error) {
 	return "", fmt.Errorf("no active version found")
 }
 
-// readNvmrc reads .nvmrc file from specified directory
-func (n *NvmManager) readNvmrc(dir string) string {
-	nvmrcPath := filepath.Join(dir, ".nvmrc")
-	if content, err := os.ReadFile(nvmrcPath); err == nil {
-		return strings.TrimSpace(string(content))
+// readNvmrcUpwards reads .nvmrc by searching upward from start directory
+func (n *NvmManager) readNvmrcUpwards(start string) string {
+	dir := start
+	for {
+		p := filepath.Join(dir, ".nvmrc")
+		if content, err := os.ReadFile(p); err == nil {
+			return strings.TrimSpace(string(content))
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			break
+		}
+		dir = parent
 	}
 	return ""
 }
 
 // resolveToFullVersion converts version alias to full version string
 func (n *NvmManager) resolveToFullVersion(nvmDir, version string) (string, error) {
-	versionsDir := filepath.Join(nvmDir, "versions", "node")
-
-	// If version already looks like a full version (starts with v), use it
+	// 1) Direct match like "v22.10.1"
 	if strings.HasPrefix(version, "v") {
-		if pathExists(filepath.Join(versionsDir, version)) {
+		if pathExists(filepath.Join(nvmDir, "versions", "node", version)) {
 			return version, nil
 		}
 	}
 
-	// If it's a major version like "22", find the latest v22.x.x
-	entries, err := os.ReadDir(versionsDir)
-	if err != nil {
-		return "", fmt.Errorf("cannot read versions directory: %w", err)
+	// 2) Aliases via files first (covers default, named aliases, and often lts/*)
+	if tgt, ok := resolveAliasFile(nvmDir, version); ok {
+		return n.resolveToFullVersion(nvmDir, tgt)
 	}
 
-	var candidates []string
-	prefix := "v" + version + "."
-
-	for _, entry := range entries {
-		if entry.IsDir() && strings.HasPrefix(entry.Name(), prefix) {
-			candidates = append(candidates, entry.Name())
+	// 3) Well-known aliases
+	switch version {
+	case "node", "stable", "current":
+		return highestInstalled(nvmDir)
+	}
+	if strings.HasPrefix(version, "lts/") {
+		// Try alias file (already tried above). If missing, best-effort: choose highest installed.
+		if tgt, ok := resolveAliasFile(nvmDir, version); ok {
+			return n.resolveToFullVersion(nvmDir, tgt)
 		}
+		return highestInstalled(nvmDir)
 	}
 
-	if len(candidates) == 0 {
-		return "", fmt.Errorf("no version found matching %s", version)
+	// 4) Major-only like "22"
+	if m, err := strconv.Atoi(version); err == nil {
+		return highestForMajor(nvmDir, m)
 	}
 
-	// Return the latest (last in sorted order)
-	// TODO: Implement proper semver sorting
-	return candidates[len(candidates)-1], nil
+	return "", fmt.Errorf("cannot resolve version spec: %s", version)
 }
 
 // generateBashWrapper creates bash/zsh wrapper function
