@@ -61,7 +61,9 @@ func getCurrentPath() ([]string, error) {
 func getPathUniPaths() ([]string, error) {
 	configPath := getConfigPath()
 	osName := getOSName()
-	return collectValidPaths(configPath, osName, platformOnly)
+	shellName, _ := getShellName()
+	paths, _, err := collectValidPaths(configPath, osName, shellName, platformOnly)
+	return paths, err
 }
 
 func formatPaths(paths []string, format string) (string, error) {

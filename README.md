@@ -20,17 +20,32 @@ make install  # copies to ~/.local/bin
 Create `~/.config/pathuni/my_paths.yaml`:
 
 ```yaml
-All:
-  - "$HOME/.local/bin"
+all:
+  paths:
+    - "$HOME/.local/bin"
 
-macOS:
-  - "/opt/homebrew/bin"
-  - "/opt/homebrew/sbin"
+macos:
+  paths:
+    - "/opt/homebrew/bin"
+    - "/opt/homebrew/sbin"
 
-Linux:
-  - "/home/linuxbrew/.linuxbrew/bin"
-  - "/home/linuxbrew/.linuxbrew/sbin"
+linux:
+  paths:
+    - "/home/linuxbrew/.linuxbrew/bin"
+    - "/home/linuxbrew/.linuxbrew/sbin"
 ```
+
+### Shell-specific Configuration
+
+PowerShell on macOS doesn't automatically load system paths from `/etc/paths` and `/etc/paths.d/` like Unix shells do. You can enable this with:
+
+```yaml
+macos:
+  powershell:
+    include_system_paths: true # Loads system paths for PowerShell
+```
+
+With this setting, PowerShell will get the same comprehensive PATH that zsh/bash get automatically, including standard system directories like `/usr/bin`, `/bin`, etc.
 
 ### Generate PATH export
 
@@ -73,11 +88,11 @@ pathuni d -f json -i all  # using shortcuts and short flags
 **Example dry-run output:**
 
 ```
-$ pathuni dry-run
+$ pathuni dry-run --shell=zsh
 Evaluating: /Users/you/.config/pathuni/my_paths.yaml
 
 OS    : macOS
-Shell : zsh (inferred)
+Shell : zsh (specified)
 
 Included Paths:
   [+] /Users/you/.local/bin
@@ -88,7 +103,7 @@ Included Paths:
 0 skipped
 
 Output:
-  export PATH="/Users/you/.local/bin:/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
+  export PATH="/Users/you/.local/bin:/opt/homebrew/bin:/opt/homebrew/sbin"
 
 To apply: run 'pathuni --shell=zsh'
 ```
@@ -116,6 +131,7 @@ $ pathuni dump --format=json --include=all
 - **bash|zsh|sh** - uses `export PATH=`
 - **fish** - uses `set -gx PATH`
 - **powershell** - uses `$env:PATH =`
+  - On macOS, can automatically include system paths from `/etc/paths` and `/etc/paths.d/` using the `include_system_paths` YAML setting (see above under _Shell-specific Configuration_).
 
 ## Why Pathuni?
 

@@ -16,7 +16,6 @@ var (
 	shell        string
 	config       string
 	platformOnly bool
-	withWrappers bool
 	dumpFormat   string
 	dumpInclude  string
 )
@@ -40,6 +39,15 @@ func getOSName() string {
 	}
 }
 
+func normalizeShellName(shell string) string {
+	switch shell {
+	case "pwsh":
+		return "powershell"
+	default:
+		return shell
+	}
+}
+
 func getShellName() (string, bool) {
 	shellName := strings.ToLower(shell)
 	inferred := false
@@ -52,6 +60,7 @@ func getShellName() (string, bool) {
 			inferred = true
 		}
 	}
+	shellName = normalizeShellName(shellName)
 	return shellName, inferred
 }
 
@@ -60,7 +69,7 @@ var initCmd = &cobra.Command{
 	Aliases: []string{"i"},
 	Short:   "Generate shell initialization code (default mode)",
 	Run: func(cmd *cobra.Command, args []string) {
-		runInit(withWrappers)
+		runInit()
 	},
 }
 
@@ -91,8 +100,8 @@ Generate shell-specific PATH export commands from a YAML config file.
 Validates that directories exist before including them.`,
 	Version: Version,
 	Run: func(cmd *cobra.Command, args []string) {
-		// Default to init command (no wrappers)
-		runInit(false)
+		// Default to init command
+		runInit()
 	},
 }
 
@@ -108,8 +117,6 @@ func init() {
 	rootCmd.AddCommand(dryRunCmd)
 	rootCmd.AddCommand(dumpCmd)
 
-	// Add flags specific to init command
-	initCmd.Flags().BoolVarP(&withWrappers, "with-wrappers", "w", false, "Generate version manager wrapper functions (experimental)")
 
 	// Add flags specific to dump command
 	dumpCmd.Flags().StringVarP(&dumpFormat, "format", "f", "plain", "Output format: plain|json|yaml")

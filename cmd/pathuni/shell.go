@@ -47,7 +47,7 @@ func renderPwsh(paths []string) string {
 	return fmt.Sprintf("$env:PATH = \"%s\"", strings.Join(paths, ":"))
 }
 
-func runInit(withWrappers bool) {
+func runInit() {
 	configPath := getConfigPath()
 	osName := getOSName()
 	shellName, _ := getShellName()
@@ -57,59 +57,12 @@ func runInit(withWrappers bool) {
 		os.Exit(1)
 	}
 
-	paths, err := collectValidPaths(configPath, osName, platformOnly)
+	paths, _, err := collectValidPaths(configPath, osName, shellName, platformOnly)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error reading config file: %v\n", err)
 		os.Exit(1)
 	}
 
-	// Add version manager paths with smart cleaning
-	versionManagers, err := getVersionManagers(configPath, osName)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error reading version managers config: %v\n", err)
-		os.Exit(1)
-	}
-
-	// Collect version managers for new PATH building logic
-	var nvmVM VersionManager
-	var otherVMs []VersionManager
-
-	for name, config := range versionManagers {
-		if name == "nvm" && config.Enabled {
-			nvmManager, err := NewNvmManager(config)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Error creating nvm manager: %v\n", err)
-				continue
-			}
-			
-			if nvmManager.Detect() {
-				nvmVM = nvmManager
-			}
-		}
-		// Future: Add other version managers (rbenv, pyenv) to otherVMs
-	}
-
-	// Build clean PATH using Pedro's invariant enforcement logic
-	finalPaths, err := buildCleanPathV2(paths, nvmVM, otherVMs)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error building clean PATH: %v\n", err)
-		os.Exit(1)
-	}
-
 	// Generate PATH export using original renderers
-	fmt.Println(renderers[shellName](finalPaths))
-
-	// Generate wrapper functions if requested
-	if withWrappers {
-		for name, config := range versionManagers {
-			if name == "nvm" && config.Enabled {
-				nvmManager, _ := NewNvmManager(config)
-				if nvmManager.Detect() {
-					if wrapper := nvmManager.GenerateWrapper(shellName); wrapper != "" {
-						fmt.Printf("\n%s\n", wrapper)
-					}
-				}
-			}
-		}
-	}
+	fmt.Println(renderers[shellName](paths))
 }
