@@ -70,9 +70,9 @@ func runInit(withWrappers bool) {
 		os.Exit(1)
 	}
 
-	// Collect enabled version managers and their paths
-	var enabledVMs []VersionManager
-	vmPaths := make(map[string]string)
+	// Collect version managers for new PATH building logic
+	var nvmVM VersionManager
+	var otherVMs []VersionManager
 
 	for name, config := range versionManagers {
 		if name == "nvm" && config.Enabled {
@@ -82,18 +82,19 @@ func runInit(withWrappers bool) {
 				continue
 			}
 			
-			enabledVMs = append(enabledVMs, nvmManager)
-			
 			if nvmManager.Detect() {
-				if nvmPath, err := nvmManager.ResolvePath(); err == nil {
-					vmPaths["nvm"] = nvmPath
-				}
+				nvmVM = nvmManager
 			}
 		}
+		// Future: Add other version managers (rbenv, pyenv) to otherVMs
 	}
 
-	// Build clean PATH (removes old version manager paths, adds new ones)
-	finalPaths := buildCleanPath(paths, enabledVMs, vmPaths)
+	// Build clean PATH using Pedro's invariant enforcement logic
+	finalPaths, err := buildCleanPathV2(paths, nvmVM, otherVMs)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error building clean PATH: %v\n", err)
+		os.Exit(1)
+	}
 
 	// Generate PATH export using original renderers
 	fmt.Println(renderers[shellName](finalPaths))

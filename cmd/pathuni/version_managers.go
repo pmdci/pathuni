@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -121,6 +122,51 @@ func resolveAliasFile(nvmDir, name string) (string, bool) {
 	return "", false
 }
 
+// selectNvmBin prefers NVM_BIN environment variable; fallback to ResolvePath
+func selectNvmBin(vm VersionManager) (string, error) {
+	if nb := strings.TrimSpace(os.Getenv("NVM_BIN")); nb != "" && pathExists(nb) {
+		return nb, nil
+	}
+	return vm.ResolvePath()
+}
+
+// normaliseKey normalizes path for cross-platform comparison (symlinks, case, etc.)
+func normaliseKey(p string) string {
+	p = filepath.Clean(p)
+	if real, err := filepath.EvalSymlinks(p); err == nil {
+		p = real
+	}
+	if runtime.GOOS == "windows" {
+		p = strings.ToLower(p)
+	}
+	return p
+}
+
+// enforceSingleNvmBin removes any NVM bin paths except the selected one
+func enforceSingleNvmBin(paths []string, selected string, re *regexp.Regexp) []string {
+	if selected == "" {
+		// No selected NVM bin - remove all nvm bins
+		out := paths[:0]
+		for _, p := range paths {
+			if !re.MatchString(p) {
+				out = append(out, p)
+			}
+		}
+		return out
+	}
+	
+	// Keep only the selected NVM bin, remove all others
+	selKey := normaliseKey(selected)
+	out := make([]string, 0, len(paths))
+	for _, p := range paths {
+		if re.MatchString(p) && normaliseKey(p) != selKey {
+			continue // Remove this NVM bin - it's not the selected one
+		}
+		out = append(out, p)
+	}
+	return out
+}
+
 // PathCleaner defines the contract for cleaning version manager paths from PATH
 type PathCleaner interface {
 	GetPathPattern() string
@@ -229,98 +275,91 @@ func (n *NvmManager) GetPathPattern() string {
 
 // CleanPath removes all nvm paths from the given PATH string
 func (n *NvmManager) CleanPath(currentPath string) string {
-	fmt.Fprintf(os.Stderr, "[DEBUG] CleanPath: Raw PATH before cleaning:\n%s\n", currentPath)
-	
 	pattern := n.GetPathPattern()
-	fmt.Fprintf(os.Stderr, "[DEBUG] CleanPath: Using regex pattern: %s\n", pattern)
-	
 	if pattern == "" {
-		fmt.Fprintf(os.Stderr, "[DEBUG] CleanPath: No pattern - returning PATH unchanged\n")
 		return currentPath
 	}
 	
 	re := regexp.MustCompile(pattern)
-	
-	// Split PATH into individual entries
 	pathEntries := strings.Split(currentPath, string(os.PathListSeparator))
 	var cleanedEntries []string
 	
-	fmt.Fprintf(os.Stderr, "[DEBUG] CleanPath: Evaluating %d PATH entries:\n", len(pathEntries))
-	
-	// Filter out nvm paths
-	for i, entry := range pathEntries {
-		matches := re.MatchString(entry)
-		action := "KEEP"
-		if matches {
-			action = "REMOVE"
-		} else {
+	for _, entry := range pathEntries {
+		if !re.MatchString(entry) {
 			cleanedEntries = append(cleanedEntries, entry)
 		}
-		fmt.Fprintf(os.Stderr, "[DEBUG] CleanPath: [%d] %s -> %s: %s\n", i, action, entry, entry)
 	}
 	
-	result := strings.Join(cleanedEntries, string(os.PathListSeparator))
-	fmt.Fprintf(os.Stderr, "[DEBUG] CleanPath: Result has %d entries (removed %d)\n", len(cleanedEntries), len(pathEntries)-len(cleanedEntries))
-	
-	return result
+	return strings.Join(cleanedEntries, string(os.PathListSeparator))
 }
 
-// buildCleanPath creates a clean PATH by removing old version manager paths and adding new ones
-func buildCleanPath(staticPaths []string, versionManagers []VersionManager, versionManagerPaths map[string]string) []string {
-	currentPath := os.Getenv("PATH")
-	fmt.Fprintf(os.Stderr, "[DEBUG] buildCleanPath: Starting with %d static paths, %d VMs, %d VM paths\n", len(staticPaths), len(versionManagers), len(versionManagerPaths))
-	fmt.Fprintf(os.Stderr, "[DEBUG] buildCleanPath: VM paths map: %v\n", versionManagerPaths)
+
+// buildCleanPathV2 implements ChatGPT's invariant-enforced PATH building
+func buildCleanPathV2(staticPaths []string, nvmVM VersionManager, otherVMs []VersionManager) ([]string, error) {
+	sep := string(os.PathListSeparator)
+	current := os.Getenv("PATH")
 	
-	// Clean out all version manager paths from current PATH
-	cleanedPath := currentPath
-	fmt.Fprintf(os.Stderr, "[DEBUG] buildCleanPath: Original PATH length: %d chars\n", len(currentPath))
+	// Get NVM regex pattern for detection
+	nvmRe, err := regexp.Compile(nvmVM.GetPathPattern())
+	if err != nil {
+		return nil, fmt.Errorf("invalid NVM path pattern: %w", err)
+	}
+
+	// Authoritative selection (Pedro's "select the new version")
+	selectedNvm, err := selectNvmBin(nvmVM)
+	if err != nil {
+		// Tolerate "no nvm" but continue without NVM paths
+		selectedNvm = ""
+	}
+
+	// Assemble PATH deterministically
+	assembled := make([]string, 0, 64)
 	
-	for _, vm := range versionManagers {
-		if vm.IsEnabled() {
-			fmt.Fprintf(os.Stderr, "[DEBUG] buildCleanPath: Cleaning with %s version manager\n", vm.Name())
-			cleanedPath = vm.CleanPath(cleanedPath)
+	// 1. Add static paths (filter out any NVM bins)
+	for _, sp := range staticPaths {
+		if sp != "" && !nvmRe.MatchString(sp) {
+			assembled = append(assembled, sp)
 		}
 	}
 	
-	fmt.Fprintf(os.Stderr, "[DEBUG] buildCleanPath: After cleaning, PATH length: %d chars\n", len(cleanedPath))
-	
-	// Build new PATH: static paths + version manager paths + cleaned system PATH entries
-	var allPaths []string
-	
-	// Add static paths first
-	fmt.Fprintf(os.Stderr, "[DEBUG] buildCleanPath: Adding %d static paths\n", len(staticPaths))
-	allPaths = append(allPaths, staticPaths...)
-	
-	// Add version manager paths
-	fmt.Fprintf(os.Stderr, "[DEBUG] buildCleanPath: Adding %d version manager paths\n", len(versionManagerPaths))
-	for name, vmPath := range versionManagerPaths {
-		fmt.Fprintf(os.Stderr, "[DEBUG] buildCleanPath: Adding %s: %s\n", name, vmPath)
-		allPaths = append(allPaths, vmPath)
+	// 2. Add the selected NVM bin (if any)
+	if selectedNvm != "" {
+		assembled = append(assembled, selectedNvm)
 	}
 	
-	// Add cleaned system PATH entries
-	if cleanedPath != "" {
-		systemPaths := strings.Split(cleanedPath, string(os.PathListSeparator))
-		fmt.Fprintf(os.Stderr, "[DEBUG] buildCleanPath: Adding %d cleaned system paths\n", len(systemPaths))
-		allPaths = append(allPaths, systemPaths...)
-	}
-	
-	// Remove duplicates while preserving order
-	seen := make(map[string]bool)
-	var uniquePaths []string
-	duplicates := 0
-	for _, path := range allPaths {
-		if path != "" && !seen[path] {
-			seen[path] = true
-			uniquePaths = append(uniquePaths, path)
-		} else if seen[path] {
-			duplicates++
+	// 3. Add other version manager paths (future: pyenv/rbenv)
+	for _, vm := range otherVMs {
+		if vm.Name() == "nvm" || !vm.IsEnabled() {
+			continue
+		}
+		if p, err := vm.ResolvePath(); err == nil && p != "" {
+			assembled = append(assembled, p)
 		}
 	}
 	
-	fmt.Fprintf(os.Stderr, "[DEBUG] buildCleanPath: Final result: %d unique paths (%d duplicates removed)\n", len(uniquePaths), duplicates)
-	
-	return uniquePaths
+	// 4. Add system PATH entries (filter out NVM bins)
+	for _, p := range strings.Split(current, sep) {
+		if p != "" && !nvmRe.MatchString(p) {
+			assembled = append(assembled, p)
+		}
+	}
+
+	// 5. Enforce invariant (Pedro's "remove all the old ones")
+	assembled = enforceSingleNvmBin(assembled, selectedNvm, nvmRe)
+
+	// 6. Deduplicate with normalized keys
+	seen := map[string]struct{}{}
+	unique := make([]string, 0, len(assembled))
+	for _, p := range assembled {
+		k := normaliseKey(p)
+		if _, ok := seen[k]; ok {
+			continue
+		}
+		seen[k] = struct{}{}
+		unique = append(unique, p)
+	}
+
+	return unique, nil
 }
 
 // resolveNvmDir finds the nvm home directory, preferring NVM_DIR env var
@@ -419,8 +458,8 @@ func (n *NvmManager) generateBashWrapper() string {
             [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" --no-use
             nvm "$@"
             local exit_code=$?
-            export NVM_BIN   # ensure updated value is visible
-            export NVM_DIR   # optional, but safe for completeness
+            export NVM_BIN
+            export NVM_DIR
             eval "$(pathuni init --with-wrappers)"
             return $exit_code
             ;;
