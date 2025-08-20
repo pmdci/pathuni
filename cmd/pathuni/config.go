@@ -9,10 +9,15 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+type PlatformConfig struct {
+	Paths           []string                         `yaml:"paths,omitempty"`
+	VersionManagers map[string]VersionManagerConfig `yaml:"version_managers,omitempty"`
+}
+
 type Config struct {
-	All   []string `yaml:"All"`
-	Linux []string `yaml:"Linux"`
-	MacOS []string `yaml:"macOS"`
+	All   []string         `yaml:"all,omitempty"`
+	Linux PlatformConfig `yaml:"linux,omitempty"`
+	MacOS PlatformConfig `yaml:"macos,omitempty"`
 }
 
 func collectValidPaths(configPath, platform string, platformOnly bool) ([]string, error) {
@@ -26,14 +31,18 @@ func collectValidPaths(configPath, platform string, platformOnly bool) ([]string
 	}
 
 	var rawPaths []string
+	
+	// Add All section paths unless platform-only is specified
 	if !platformOnly {
 		rawPaths = append(rawPaths, cfg.All...)
 	}
+	
+	// Get platform-specific paths
 	switch platform {
 	case "Linux":
-		rawPaths = append(rawPaths, cfg.Linux...)
+		rawPaths = append(rawPaths, cfg.Linux.Paths...)
 	case "macOS":
-		rawPaths = append(rawPaths, cfg.MacOS...)
+		rawPaths = append(rawPaths, cfg.MacOS.Paths...)
 	}
 
 	var paths []string
@@ -44,6 +53,26 @@ func collectValidPaths(configPath, platform string, platformOnly bool) ([]string
 		}
 	}
 	return paths, nil
+}
+
+func getVersionManagers(configPath, platform string) (map[string]VersionManagerConfig, error) {
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		return nil, err
+	}
+	var cfg Config
+	if err := yaml.Unmarshal(data, &cfg); err != nil {
+		return nil, err
+	}
+
+	switch platform {
+	case "Linux":
+		return cfg.Linux.VersionManagers, nil
+	case "macOS":
+		return cfg.MacOS.VersionManagers, nil
+	default:
+		return nil, nil
+	}
 }
 
 func EvaluateConfig(configPath, platform string, platformOnly bool) (validPaths []string, skippedPaths []string, err error) {
@@ -57,14 +86,18 @@ func EvaluateConfig(configPath, platform string, platformOnly bool) (validPaths 
 	}
 
 	var rawPaths []string
+	
+	// Add All section paths unless platform-only is specified
 	if !platformOnly {
 		rawPaths = append(rawPaths, cfg.All...)
 	}
+	
+	// Get platform-specific paths
 	switch platform {
 	case "Linux":
-		rawPaths = append(rawPaths, cfg.Linux...)
+		rawPaths = append(rawPaths, cfg.Linux.Paths...)
 	case "macOS":
-		rawPaths = append(rawPaths, cfg.MacOS...)
+		rawPaths = append(rawPaths, cfg.MacOS.Paths...)
 	}
 
 	for _, line := range rawPaths {

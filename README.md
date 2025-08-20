@@ -37,10 +37,10 @@ Linux:
 ```bash
 # Auto-detect shell and OS (default command)
 pathuni
-pathuni print
+pathuni init
 
 # Specify shell explicitly
-pathuni print --shell=fish
+pathuni init --shell=fish
 pathuni --shell=powershell  # shortcut: global flags work on root command
 ```
 

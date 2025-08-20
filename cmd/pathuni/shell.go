@@ -36,18 +36,18 @@ var renderers = map[string]func([]string) string{
 }
 
 func renderBash(paths []string) string {
-	return fmt.Sprintf("export PATH=\"%s:$PATH\"", strings.Join(paths, ":"))
+	return fmt.Sprintf("export PATH=\"%s\"", strings.Join(paths, ":"))
 }
 
 func renderFish(paths []string) string {
-	return fmt.Sprintf("set -gx PATH %s $PATH", strings.Join(paths, " "))
+	return fmt.Sprintf("set -gx PATH %s", strings.Join(paths, " "))
 }
 
 func renderPwsh(paths []string) string {
-	return fmt.Sprintf("$env:PATH = \"%s:$env:PATH\"", strings.Join(paths, ":"))
+	return fmt.Sprintf("$env:PATH = \"%s\"", strings.Join(paths, ":"))
 }
 
-func runPrint() {
+func runInit(withWrappers bool) {
 	configPath := getConfigPath()
 	osName := getOSName()
 	shellName, _ := getShellName()
@@ -63,5 +63,52 @@ func runPrint() {
 		os.Exit(1)
 	}
 
-	fmt.Println(renderers[shellName](paths))
+	// Add version manager paths with smart cleaning
+	versionManagers, err := getVersionManagers(configPath, osName)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error reading version managers config: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Collect enabled version managers and their paths
+	var enabledVMs []VersionManager
+	vmPaths := make(map[string]string)
+
+	for name, config := range versionManagers {
+		if name == "nvm" && config.Enabled {
+			nvmManager, err := NewNvmManager(config)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error creating nvm manager: %v\n", err)
+				continue
+			}
+			
+			enabledVMs = append(enabledVMs, nvmManager)
+			
+			if nvmManager.Detect() {
+				if nvmPath, err := nvmManager.ResolvePath(); err == nil {
+					vmPaths["nvm"] = nvmPath
+				}
+			}
+		}
+	}
+
+	// Build clean PATH (removes old version manager paths, adds new ones)
+	finalPaths := buildCleanPath(paths, enabledVMs, vmPaths)
+
+	// Generate PATH export using original renderers
+	fmt.Println(renderers[shellName](finalPaths))
+
+	// Generate wrapper functions if requested
+	if withWrappers {
+		for name, config := range versionManagers {
+			if name == "nvm" && config.Enabled {
+				nvmManager, _ := NewNvmManager(config)
+				if nvmManager.Detect() {
+					if wrapper := nvmManager.GenerateWrapper(shellName); wrapper != "" {
+						fmt.Printf("\n%s\n", wrapper)
+					}
+				}
+			}
+		}
+	}
 }

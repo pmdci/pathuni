@@ -16,9 +16,9 @@ var (
 	shell        string
 	config       string
 	platformOnly bool
-	// dump command flags
-	dumpFormat  string
-	dumpInclude string
+	withWrappers bool
+	dumpFormat   string
+	dumpInclude  string
 )
 
 func getConfigPath() string {
@@ -55,12 +55,12 @@ func getShellName() (string, bool) {
 	return shellName, inferred
 }
 
-var printCmd = &cobra.Command{
-	Use:     "print",
-	Aliases: []string{"p"},
-	Short:   "Generate PATH export command (default mode)",
+var initCmd = &cobra.Command{
+	Use:     "init",
+	Aliases: []string{"i"},
+	Short:   "Generate shell initialization code (default mode)",
 	Run: func(cmd *cobra.Command, args []string) {
-		runPrint()
+		runInit(withWrappers)
 	},
 }
 
@@ -91,8 +91,8 @@ Generate shell-specific PATH export commands from a YAML config file.
 Validates that directories exist before including them.`,
 	Version: Version,
 	Run: func(cmd *cobra.Command, args []string) {
-		// Default to print command
-		runPrint()
+		// Default to init command (no wrappers)
+		runInit(false)
 	},
 }
 
@@ -104,9 +104,12 @@ func init() {
 	rootCmd.PersistentFlags().BoolVarP(&platformOnly, "platform-only", "p", false, "Include only platform-specific paths, skip 'All' section")
 
 	// Add subcommands
-	rootCmd.AddCommand(printCmd)
+	rootCmd.AddCommand(initCmd)
 	rootCmd.AddCommand(dryRunCmd)
 	rootCmd.AddCommand(dumpCmd)
+
+	// Add flags specific to init command
+	initCmd.Flags().BoolVarP(&withWrappers, "with-wrappers", "w", false, "Generate version manager wrapper functions (experimental)")
 
 	// Add flags specific to dump command
 	dumpCmd.Flags().StringVarP(&dumpFormat, "format", "f", "plain", "Output format: plain|json|yaml")
