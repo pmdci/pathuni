@@ -229,9 +229,13 @@ func (n *NvmManager) GetPathPattern() string {
 
 // CleanPath removes all nvm paths from the given PATH string
 func (n *NvmManager) CleanPath(currentPath string) string {
+	fmt.Fprintf(os.Stderr, "[DEBUG] CleanPath: Raw PATH before cleaning:\n%s\n", currentPath)
+	
 	pattern := n.GetPathPattern()
+	fmt.Fprintf(os.Stderr, "[DEBUG] CleanPath: Using regex pattern: %s\n", pattern)
+	
 	if pattern == "" {
-		// No valid nvm directory found - return PATH unchanged
+		fmt.Fprintf(os.Stderr, "[DEBUG] CleanPath: No pattern - returning PATH unchanged\n")
 		return currentPath
 	}
 	
@@ -241,54 +245,80 @@ func (n *NvmManager) CleanPath(currentPath string) string {
 	pathEntries := strings.Split(currentPath, string(os.PathListSeparator))
 	var cleanedEntries []string
 	
+	fmt.Fprintf(os.Stderr, "[DEBUG] CleanPath: Evaluating %d PATH entries:\n", len(pathEntries))
+	
 	// Filter out nvm paths
-	for _, entry := range pathEntries {
-		if !re.MatchString(entry) {
+	for i, entry := range pathEntries {
+		matches := re.MatchString(entry)
+		action := "KEEP"
+		if matches {
+			action = "REMOVE"
+		} else {
 			cleanedEntries = append(cleanedEntries, entry)
 		}
+		fmt.Fprintf(os.Stderr, "[DEBUG] CleanPath: [%d] %s -> %s: %s\n", i, action, entry, entry)
 	}
 	
-	return strings.Join(cleanedEntries, string(os.PathListSeparator))
+	result := strings.Join(cleanedEntries, string(os.PathListSeparator))
+	fmt.Fprintf(os.Stderr, "[DEBUG] CleanPath: Result has %d entries (removed %d)\n", len(cleanedEntries), len(pathEntries)-len(cleanedEntries))
+	
+	return result
 }
 
 // buildCleanPath creates a clean PATH by removing old version manager paths and adding new ones
 func buildCleanPath(staticPaths []string, versionManagers []VersionManager, versionManagerPaths map[string]string) []string {
 	currentPath := os.Getenv("PATH")
+	fmt.Fprintf(os.Stderr, "[DEBUG] buildCleanPath: Starting with %d static paths, %d VMs, %d VM paths\n", len(staticPaths), len(versionManagers), len(versionManagerPaths))
+	fmt.Fprintf(os.Stderr, "[DEBUG] buildCleanPath: VM paths map: %v\n", versionManagerPaths)
 	
 	// Clean out all version manager paths from current PATH
 	cleanedPath := currentPath
+	fmt.Fprintf(os.Stderr, "[DEBUG] buildCleanPath: Original PATH length: %d chars\n", len(currentPath))
+	
 	for _, vm := range versionManagers {
 		if vm.IsEnabled() {
+			fmt.Fprintf(os.Stderr, "[DEBUG] buildCleanPath: Cleaning with %s version manager\n", vm.Name())
 			cleanedPath = vm.CleanPath(cleanedPath)
 		}
 	}
+	
+	fmt.Fprintf(os.Stderr, "[DEBUG] buildCleanPath: After cleaning, PATH length: %d chars\n", len(cleanedPath))
 	
 	// Build new PATH: static paths + version manager paths + cleaned system PATH entries
 	var allPaths []string
 	
 	// Add static paths first
+	fmt.Fprintf(os.Stderr, "[DEBUG] buildCleanPath: Adding %d static paths\n", len(staticPaths))
 	allPaths = append(allPaths, staticPaths...)
 	
 	// Add version manager paths
-	for _, vmPath := range versionManagerPaths {
+	fmt.Fprintf(os.Stderr, "[DEBUG] buildCleanPath: Adding %d version manager paths\n", len(versionManagerPaths))
+	for name, vmPath := range versionManagerPaths {
+		fmt.Fprintf(os.Stderr, "[DEBUG] buildCleanPath: Adding %s: %s\n", name, vmPath)
 		allPaths = append(allPaths, vmPath)
 	}
 	
 	// Add cleaned system PATH entries
 	if cleanedPath != "" {
 		systemPaths := strings.Split(cleanedPath, string(os.PathListSeparator))
+		fmt.Fprintf(os.Stderr, "[DEBUG] buildCleanPath: Adding %d cleaned system paths\n", len(systemPaths))
 		allPaths = append(allPaths, systemPaths...)
 	}
 	
 	// Remove duplicates while preserving order
 	seen := make(map[string]bool)
 	var uniquePaths []string
+	duplicates := 0
 	for _, path := range allPaths {
 		if path != "" && !seen[path] {
 			seen[path] = true
 			uniquePaths = append(uniquePaths, path)
+		} else if seen[path] {
+			duplicates++
 		}
 	}
+	
+	fmt.Fprintf(os.Stderr, "[DEBUG] buildCleanPath: Final result: %d unique paths (%d duplicates removed)\n", len(uniquePaths), duplicates)
 	
 	return uniquePaths
 }
