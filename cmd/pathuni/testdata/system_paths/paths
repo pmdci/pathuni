@@ -1,6 +1,6 @@
 # Mock /etc/paths file
-/usr/local/bin
-/usr/bin
-/bin
-/usr/sbin
-/sbin
+/tmp/pathuni/usr/local/bin
+/tmp/pathuni/usr/bin
+/tmp/pathuni/bin
+/tmp/pathuni/usr/sbin
+/tmp/pathuni/sbin

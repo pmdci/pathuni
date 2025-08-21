@@ -36,6 +36,8 @@ func setupTestFilesystem(t *testing.T) {
 		"/tmp/pathuni/Applications/Docker.app/Contents/Resources/bin",
 		"/tmp/pathuni/Applications/Xcode.app/Contents/Developer/usr/bin",
 		"/tmp/pathuni/System/Library/Frameworks",
+		"/tmp/pathuni/usr/local/go/bin",
+		"/tmp/pathuni/usr/local/node/bin",
 	}
 	
 	for _, dir := range testDirs {

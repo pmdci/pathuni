@@ -9,24 +9,18 @@ builds:
   - id: pathuni
     env:
       - CGO_ENABLED=0
-    goos:
-      - linux
-      - darwin
-    goarch:
-      - amd64
-      - arm64
+    goos: [linux, darwin]
+    goarch: [amd64, arm64]
     main: ./cmd/pathuni
     binary: pathuni
     ldflags:
       - -s -w
       - -X main.Version={{.Version}}
-    flags:
-      - -trimpath
+    flags: [-trimpath]
 
 archives:
   - id: pathuni
-    builds:
-      - pathuni
+    ids: [pathuni] # fixed
     name_template: >-
       {{ .ProjectName }}_
       {{- title .Os }}_
@@ -36,19 +30,19 @@ archives:
       {{- if .Arm }}v{{ .Arm }}{{ end }}
 
 checksum:
-  name_template: 'checksums.txt'
+  name_template: "checksums.txt"
 
 snapshot:
-  name_template: "{{ incpatch .Version }}-next"
+  version_template: "{{ incpatch .Version }}-next" # fixed
 
 changelog:
   sort: asc
   filters:
     exclude:
-      - '^docs:'
-      - '^test:'
+      - "^docs:"
+      - "^test:"
 
-brews:
+brews: # keep this, still valid for CLI
   - name: pathuni
     homepage: https://github.com/pmdci/pathuni
     description: "Cross-platform PATH management tool for dotfiles"

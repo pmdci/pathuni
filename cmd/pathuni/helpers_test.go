@@ -8,6 +8,9 @@ import (
 )
 
 func TestHelpers_ReadPathsFile(t *testing.T) {
+	setupTestFilesystem(t)
+	defer cleanupTestFilesystem()
+	
 	tests := []struct {
 		name        string
 		filename    string
@@ -17,19 +20,19 @@ func TestHelpers_ReadPathsFile(t *testing.T) {
 		{
 			name:        "system paths file",
 			filename:    "system_paths/paths",
-			expectPaths: []string{"/usr/local/bin", "/usr/bin", "/bin", "/usr/sbin", "/sbin"},
+			expectPaths: []string{"/tmp/pathuni/usr/local/bin", "/tmp/pathuni/usr/bin", "/tmp/pathuni/bin", "/tmp/pathuni/usr/sbin", "/tmp/pathuni/sbin"},
 			expectError: false,
 		},
 		{
 			name:        "homebrew paths",
 			filename:    "system_paths/paths.d/homebrew",
-			expectPaths: []string{"/opt/homebrew/bin", "/opt/homebrew/sbin"},
+			expectPaths: []string{"/tmp/pathuni/opt/homebrew/bin", "/tmp/pathuni/opt/homebrew/sbin"},
 			expectError: false,
 		},
 		{
 			name:        "user paths with comments",
 			filename:    "system_paths/paths.d/user_paths",
-			expectPaths: []string{"/usr/local/go/bin", "/usr/local/node/bin"},
+			expectPaths: []string{"/tmp/pathuni/usr/local/go/bin", "/tmp/pathuni/usr/local/node/bin"},
 			expectError: false,
 		},
 		{
@@ -276,6 +279,9 @@ func TestHelpers_ReadPathsFileErrors(t *testing.T) {
 
 // Integration test that mimics getSystemPaths behavior with our test data
 func TestHelpers_SystemPathsIntegration(t *testing.T) {
+	setupTestFilesystem(t)
+	defer cleanupTestFilesystem()
+	
 	// This test simulates what getSystemPaths would do with our test data
 	// We can't easily test getSystemPaths directly because it hardcodes /etc/paths
 	
@@ -310,9 +316,9 @@ func TestHelpers_SystemPathsIntegration(t *testing.T) {
 	
 	// Verify we got expected paths from our test data
 	expectedPaths := []string{
-		"/usr/local/bin", "/usr/bin", "/bin", "/usr/sbin", "/sbin", // from main paths
-		"/opt/homebrew/bin", "/opt/homebrew/sbin",                  // from homebrew
-		"/usr/local/go/bin", "/usr/local/node/bin",                 // from user_paths
+		"/tmp/pathuni/usr/local/bin", "/tmp/pathuni/usr/bin", "/tmp/pathuni/bin", "/tmp/pathuni/usr/sbin", "/tmp/pathuni/sbin", // from main paths
+		"/tmp/pathuni/opt/homebrew/bin", "/tmp/pathuni/opt/homebrew/sbin",                  // from homebrew
+		"/tmp/pathuni/usr/local/go/bin", "/tmp/pathuni/usr/local/node/bin",                 // from user_paths
 	}
 	
 	if len(allPaths) != len(expectedPaths) {

@@ -1,5 +1,5 @@
 # User paths
-/usr/local/go/bin
-/usr/local/node/bin
+/tmp/pathuni/usr/local/go/bin
+/tmp/pathuni/usr/local/node/bin
 
 # Empty line above and comment should be ignored
