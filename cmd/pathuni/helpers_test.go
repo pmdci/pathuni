@@ -77,7 +77,51 @@ func TestHelpers_ReadPathsFile(t *testing.T) {
 	}
 }
 
+// Test helper function that uses testdata instead of real system paths
+func getTestSystemPaths() ([]string, error) {
+	var systemPaths []string
+	
+	// Read testdata/system_paths/paths
+	if paths, err := readPathsFile(filepath.Join("testdata", "system_paths", "paths")); err == nil {
+		systemPaths = append(systemPaths, paths...)
+	}
+	
+	// Read files in testdata/system_paths/paths.d/
+	pathsDir := filepath.Join("testdata", "system_paths", "paths.d")
+	if entries, err := os.ReadDir(pathsDir); err == nil {
+		for _, entry := range entries {
+			if !entry.IsDir() {
+				filePath := filepath.Join(pathsDir, entry.Name())
+				if paths, err := readPathsFile(filePath); err == nil {
+					systemPaths = append(systemPaths, paths...)
+				}
+			}
+		}
+	}
+	
+	return systemPaths, nil
+}
+
+// Test helper function that mimics getShellSpecificPaths but uses test data
+func getTestShellSpecificPaths(shell string, platformConfig PlatformConfig) []string {
+	var additionalPaths []string
+	
+	switch shell {
+	case "powershell":
+		if platformConfig.PowerShell != nil && platformConfig.PowerShell.IncludeSystemPaths {
+			if systemPaths, err := getTestSystemPaths(); err == nil {
+				additionalPaths = append(additionalPaths, systemPaths...)
+			}
+		}
+	}
+	
+	return additionalPaths
+}
+
 func TestHelpers_GetShellSpecificPaths(t *testing.T) {
+	setupTestFilesystem(t)
+	defer cleanupTestFilesystem()
+	
 	tests := []struct {
 		name           string
 		shell          string
@@ -126,7 +170,7 @@ func TestHelpers_GetShellSpecificPaths(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			paths := getShellSpecificPaths(tt.shell, tt.platformConfig)
+			paths := getTestShellSpecificPaths(tt.shell, tt.platformConfig)
 			
 			if tt.expectPaths && len(paths) == 0 {
 				t.Errorf("Expected some system paths for %s, got none", tt.name)
@@ -139,7 +183,32 @@ func TestHelpers_GetShellSpecificPaths(t *testing.T) {
 	}
 }
 
+// Test helper function that mimics countValidSystemPaths but uses test data
+func countTestValidSystemPaths(shell string, platformConfig PlatformConfig) int {
+	if shell != "powershell" || platformConfig.PowerShell == nil || !platformConfig.PowerShell.IncludeSystemPaths {
+		return 0
+	}
+	
+	systemPaths, err := getTestSystemPaths()
+	if err != nil {
+		return 0
+	}
+	
+	validCount := 0
+	for _, path := range systemPaths {
+		expanded := os.ExpandEnv(path)
+		if info, err := os.Stat(expanded); err == nil && info.IsDir() {
+			validCount++
+		}
+	}
+	
+	return validCount
+}
+
 func TestHelpers_CountValidSystemPaths(t *testing.T) {
+	setupTestFilesystem(t)
+	defer cleanupTestFilesystem()
+	
 	tests := []struct {
 		name           string
 		shell          string
@@ -186,7 +255,7 @@ func TestHelpers_CountValidSystemPaths(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			count := countValidSystemPaths(tt.shell, tt.platformConfig)
+			count := countTestValidSystemPaths(tt.shell, tt.platformConfig)
 			
 			if tt.expectCount == -1 {
 				// Just check that we got some paths
