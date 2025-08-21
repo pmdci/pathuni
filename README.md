@@ -291,7 +291,8 @@ The build system includes several optimizations:
 
 - **Compiler flags**: `-s -w -trimpath` remove debug symbols and build paths
 - **UPX compression**: Automatically applied in `build-release` and `cross-compile` if UPX is installed
-- **Cross-platform**: The Makefile handles UPX platform differences (macOS requires `--force-macos`)
+- **Cross-platform**: The Makefile handles UPX platform differences.
+  - **NOTE**: UPX compression for macOS is officially unsupported until further notice.
 
 Size comparison (typical results as of v0.4.0):
 

@@ -16,10 +16,11 @@ build:
 build-release:
 	mkdir -p bin
 	CGO_ENABLED=0 go build -ldflags="$(LDFLAGS_RELEASE)" $(BUILD_FLAGS) -o bin/pathuni ./cmd/pathuni
+# Disable upx for macOS due to recent incompatibility issues (Apple being Apple)
 	@if command -v upx >/dev/null 2>&1; then \
 		echo "UPX found, compressing binary..."; \
 		if [ "$$(uname)" = "Darwin" ]; then \
-			upx --force-macos --best bin/pathuni; \
+			echo "UPX compression for macOS is officially unsupported until further notice. Skipping..."; \
 		else \
 			upx --best bin/pathuni; \
 		fi; \
@@ -38,7 +39,7 @@ cross-compile:
 	done
 	@if command -v upx >/dev/null 2>&1; then \
 		echo "UPX found, compressing cross-compiled binaries..."; \
-		upx --force-macos --best bin/pathuni-darwin-* 2>/dev/null || true; \
+		echo "UPX compression for macOS is officially unsupported until further notice. Skipping Darwin binaries..."; \
 		upx --best bin/pathuni-linux-* 2>/dev/null || true; \
 		echo "Cross-compilation and compression complete."; \
 	else \

@@ -20,7 +20,7 @@ builds:
     flags: [-trimpath]
     hooks:
       post:
-        - cmd: sh -c 'if command -v upx >/dev/null 2>&1; then if [ "{{ .Os }}" = "darwin" ]; then upx --force-macos --best "{{ .Path }}" || echo "UPX compression failed for {{ .Path }}, continuing..."; else upx --best "{{ .Path }}" || echo "UPX compression failed for {{ .Path }}, continuing..."; fi; else echo "UPX not available, skipping compression for {{ .Path }}"; fi'
+        - cmd: sh -c 'if command -v upx >/dev/null 2>&1; then if [ "{{ .Os }}" = "darwin" ]; then echo "UPX compression for macOS is officially unsupported until further notice. Skipping... {{ .Path }}..."; else upx --best "{{ .Path }}" || echo "UPX compression failed for {{ .Path }}, continuing..."; fi; else echo "UPX not available, skipping compression for {{ .Path }}"; fi'
 
 archives:
   - id: pathuni
