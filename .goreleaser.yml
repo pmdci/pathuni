@@ -46,17 +46,12 @@ changelog:
       - "^docs:"
       - "^test:"
 
-brews: # keep this, still valid for CLI
-  - name: pathuni
-    homepage: https://github.com/pmdci/pathuni
-    description: "Cross-platform PATH management tool for dotfiles"
-    license: MIT
-    repository:
-      owner: pmdci
-      name: homebrew-tap
-    directory: Formula
-    test: |
-      system "#{bin}/pathuni --version"
+# TODO: Submit to official Homebrew repository once ready
+# brews:
+#   - name: pathuni
+#     homepage: https://github.com/pmdci/pathuni
+#     description: "Cross-platform PATH management tool for dotfiles"
+#     license: GPL-3.0
 
 release:
   github:
