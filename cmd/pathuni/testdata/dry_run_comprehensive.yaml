@@ -1,33 +1,33 @@
 all:
   paths:
-    - "/usr/local/bin"  # Found + untagged
-    - path: "/usr/bin"
+    - "/tmp/pathuni/usr/local/bin"  # Found + untagged (test path)
+    - path: "/tmp/pathuni/usr/bin"
       tags:
         - essential
         - system
-    - "/usr/garbage-nonexistent-untagged"  # Not found + untagged
-    - path: "/usr/garbage-nonexistent-tagged"
+    - "/garbage-fake-dir-xyz123"  # Not found + untagged
+    - path: "/another-fake-dir-abc456"
       tags:
         - missing
         - test
 
 macos:
   paths:
-    - "/opt/homebrew/bin"  # Found + untagged (if homebrew installed)
-    - path: "/System/Library/Frameworks"
+    - "/tmp/pathuni/tmp"  # Found + untagged (test path)
+    - path: "/tmp/pathuni/bin"
       tags:
         - macos
-        - frameworks
-    - "/Applications/NonExistent.app/Contents/MacOS"  # Not found + untagged
-    - path: "/Applications/NonExistentTagged.app/Contents/MacOS"
+        - core
+    - "/fake-macos-app-dir-xyz"  # Not found + untagged
+    - path: "/fake-macos-tagged-dir-abc"
       tags:
         - missing
         - work
 
 linux:
   paths:
-    - "/snap/bin"  # Found + untagged (if snap installed)
-    - path: "/usr/games"
+    - "/tmp/pathuni/tmp"  # Found + untagged (test path)
+    - path: "/tmp/pathuni/bin"
       tags:
         - linux
-        - gaming
+        - core

@@ -56,7 +56,7 @@ brews:
     repository:
       owner: pmdci
       name: homebrew-tap
-    folder: Formula
+    directory: Formula
     test: |
       system "#{bin}/pathuni --version"
 

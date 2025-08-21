@@ -6,6 +6,9 @@ import (
 )
 
 func TestIntegration_TagFiltering(t *testing.T) {
+	setupTestFilesystem(t)
+	defer cleanupTestFilesystem()
+	
 	testConfigPath := filepath.Join("testdata", "integration_tag_filtering.yaml")
 
 	tests := []struct {

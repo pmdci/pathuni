@@ -1,6 +1,6 @@
 macos:
   paths:
-    - "/usr/local/bin"  # Untagged path
-    - path: "$HOME/.local/bin"
+    - "/tmp/pathuni/usr/local/bin"  # Untagged path
+    - path: "/tmp/pathuni/home/Pratt/.local/bin"
       tags:
         - personal

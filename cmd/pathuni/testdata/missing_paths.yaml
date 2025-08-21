@@ -1,12 +1,12 @@
 macos:
   paths:
-    - "/nonexistent/directory"  # Untagged missing path
-    - path: "/another/missing/path"
+    - "/garbage-fake-nonexistent-directory-xyz"  # Untagged missing path
+    - path: "/garbage-fake-another-missing-path-abc"
       tags:
         - missing
         - test
-    - "/usr/local/bin"  # Untagged existing path
-    - path: "/fake/work/bin"
+    - "/tmp/pathuni/usr/local/bin"  # Untagged existing path
+    - path: "/garbage-fake-work-bin-def123"
       tags:
         - work
         - missing

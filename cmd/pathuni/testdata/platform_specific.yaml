@@ -1,19 +1,19 @@
 all:
   paths:
-    - "/usr/local/bin"  # Common untagged path
-    - path: "/usr/bin"
+    - "/tmp/pathuni/usr/local/bin"  # Common untagged path
+    - path: "/tmp/pathuni/usr/bin"
       tags:
         - essential
         - system
 
 macos:
   paths:
-    - "/opt/homebrew/bin"  # Untagged homebrew
-    - path: "/System/Library/Frameworks"
+    - "/tmp/pathuni/opt/homebrew/bin"  # Untagged test path
+    - path: "/tmp/pathuni/System/Library/Frameworks"
       tags:
         - macos
         - frameworks
-    - path: "/Applications/Xcode.app/Contents/Developer/usr/bin"
+    - path: "/tmp/pathuni/Applications/Xcode.app/Contents/Developer/usr/bin"
       tags:
         - xcode
         - dev
@@ -21,12 +21,12 @@ macos:
 
 linux:
   paths:
-    - "/snap/bin"  # Untagged snap
-    - path: "/usr/games"
+    - "/tmp/pathuni/snap/bin"  # Untagged snap
+    - path: "/tmp/pathuni/usr/games"
       tags:
         - linux
         - gaming
-    - path: "/home/linuxbrew/.linuxbrew/bin"
+    - path: "/tmp/pathuni/home/linuxbrew/.linuxbrew/bin"
       tags:
         - homebrew
         - dev

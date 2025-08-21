@@ -6,6 +6,9 @@ import (
 )
 
 func TestDryRun_DetailedOutput(t *testing.T) {
+	setupTestFilesystem(t)
+	defer cleanupTestFilesystem()
+	
 	testConfigPath := filepath.Join("testdata", "dry_run_comprehensive.yaml")
 
 	tests := []struct {
@@ -143,6 +146,9 @@ func TestDryRun_DetailedOutput(t *testing.T) {
 }
 
 func TestDryRun_BackwardsCompatibility(t *testing.T) {
+	setupTestFilesystem(t)
+	defer cleanupTestFilesystem()
+	
 	// Test that the old EvaluateConfig still works the same way
 	testConfigPath := filepath.Join("testdata", "dry_run_comprehensive.yaml")
 

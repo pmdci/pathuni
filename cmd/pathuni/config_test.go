@@ -74,6 +74,9 @@ func TestConfig_YAMLParsing(t *testing.T) {
 }
 
 func TestConfig_PlatformFiltering(t *testing.T) {
+	setupTestFilesystem(t)
+	defer cleanupTestFilesystem()
+	
 	configPath := filepath.Join("testdata", "platform_specific.yaml")
 	
 	tests := []struct {
@@ -86,25 +89,25 @@ func TestConfig_PlatformFiltering(t *testing.T) {
 			name:         "macOS with all section",
 			platform:     "macOS",
 			platformOnly: false,
-			expectPaths:  []string{"/usr/local/bin", "/usr/bin", "/opt/homebrew/bin", "/System/Library/Frameworks", "/Applications/Xcode.app/Contents/Developer/usr/bin"},
+			expectPaths:  []string{"/tmp/pathuni/usr/local/bin", "/tmp/pathuni/usr/bin", "/tmp/pathuni/opt/homebrew/bin", "/tmp/pathuni/System/Library/Frameworks", "/tmp/pathuni/Applications/Xcode.app/Contents/Developer/usr/bin"},
 		},
 		{
 			name:         "macOS platform only",
 			platform:     "macOS",
 			platformOnly: true,
-			expectPaths:  []string{"/opt/homebrew/bin", "/System/Library/Frameworks", "/Applications/Xcode.app/Contents/Developer/usr/bin"},
+			expectPaths:  []string{"/tmp/pathuni/opt/homebrew/bin", "/tmp/pathuni/System/Library/Frameworks", "/tmp/pathuni/Applications/Xcode.app/Contents/Developer/usr/bin"},
 		},
 		{
 			name:         "Linux with all section",
 			platform:     "Linux",
 			platformOnly: false,
-			expectPaths:  []string{"/usr/local/bin", "/usr/bin", "/snap/bin", "/usr/games", "/home/linuxbrew/.linuxbrew/bin"},
+			expectPaths:  []string{"/tmp/pathuni/usr/local/bin", "/tmp/pathuni/usr/bin", "/tmp/pathuni/snap/bin", "/tmp/pathuni/usr/games", "/tmp/pathuni/home/linuxbrew/.linuxbrew/bin"},
 		},
 		{
 			name:         "Linux platform only",
 			platform:     "Linux",
 			platformOnly: true,
-			expectPaths:  []string{"/snap/bin", "/usr/games", "/home/linuxbrew/.linuxbrew/bin"},
+			expectPaths:  []string{"/tmp/pathuni/snap/bin", "/tmp/pathuni/usr/games", "/tmp/pathuni/home/linuxbrew/.linuxbrew/bin"},
 		},
 	}
 	
@@ -140,14 +143,17 @@ func TestConfig_PlatformFiltering(t *testing.T) {
 }
 
 func TestConfig_EnvironmentExpansion(t *testing.T) {
+	setupTestFilesystem(t)
+	defer cleanupTestFilesystem()
+	
 	configPath := filepath.Join("testdata", "env_vars.yaml")
 	
-	// Set test environment variables
+	// Set test environment variables to point to our test structure
 	originalHome := os.Getenv("HOME")
 	originalUser := os.Getenv("USER")
 	
-	testHome := "/test/home"
-	testUser := "testuser"
+	testHome := "/tmp/pathuni/home/Pratt"
+	testUser := "Pratt"
 	
 	os.Setenv("HOME", testHome)
 	os.Setenv("USER", testUser)
@@ -178,29 +184,32 @@ func TestConfig_EnvironmentExpansion(t *testing.T) {
 	foundCargo := false
 	
 	for _, path := range allPaths {
-		if strings.Contains(path, testHome+"/.local/bin") {
+		if path == testHome+"/.local/bin" {
 			foundHomeLocal = true
 		}
-		if strings.Contains(path, testUser+"/bin") {
+		if path == testUser+"/bin" {
 			foundUserBin = true
 		}
-		if strings.Contains(path, testHome+"/.cargo/bin") {
+		if path == testHome+"/.cargo/bin" {
 			foundCargo = true
 		}
 	}
 	
 	if !foundHomeLocal {
-		t.Errorf("$HOME/.local/bin not properly expanded. Paths: %v", allPaths)
+		t.Errorf("$HOME/.local/bin not properly expanded to %s. Paths: %v", testHome+"/.local/bin", allPaths)
 	}
 	if !foundUserBin {
-		t.Errorf("${USER}/bin not properly expanded. Paths: %v", allPaths)
+		t.Errorf("${USER}/bin not properly expanded to %s. Paths: %v", testUser+"/bin", allPaths)
 	}
 	if !foundCargo {
-		t.Errorf("$HOME/.cargo/bin not properly expanded. Paths: %v", allPaths)
+		t.Errorf("$HOME/.cargo/bin not properly expanded to %s. Paths: %v", testHome+"/.cargo/bin", allPaths)
 	}
 }
 
 func TestConfig_PathValidation(t *testing.T) {
+	setupTestFilesystem(t)
+	defer cleanupTestFilesystem()
+	
 	configPath := filepath.Join("testdata", "missing_paths.yaml")
 	
 	validPaths, skippedPaths, _, err := EvaluateConfig(configPath, "macOS", "bash", false, TagFilter{})
@@ -233,6 +242,9 @@ func TestConfig_PathValidation(t *testing.T) {
 }
 
 func TestConfig_CollectValidPaths(t *testing.T) {
+	setupTestFilesystem(t)
+	defer cleanupTestFilesystem()
+	
 	// Test the collectValidPaths function directly
 	configPath := filepath.Join("testdata", "valid_config.yaml")
 	
@@ -319,6 +331,9 @@ func TestConfig_ErrorHandling(t *testing.T) {
 }
 
 func TestConfig_EdgeCases(t *testing.T) {
+	setupTestFilesystem(t)
+	defer cleanupTestFilesystem()
+	
 	// Test with empty platform (unsupported OS)
 	t.Run("empty platform", func(t *testing.T) {
 		configPath := filepath.Join("testdata", "valid_config.yaml")
@@ -434,6 +449,9 @@ func TestConfig_MixedYAMLFormat(t *testing.T) {
 }
 
 func TestConfig_TagValidationErrors(t *testing.T) {
+	setupTestFilesystem(t)
+	defer cleanupTestFilesystem()
+	
 	tests := []struct {
 		name          string
 		configContent string
@@ -505,7 +523,7 @@ func TestConfig_TagValidationErrors(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tmpFile, err := os.CreateTemp("", "pathuni-validation-test-*.yaml")
+			tmpFile, err := os.CreateTemp("/tmp/pathuni/home/Pratt/.config/pathuni", "pathuni-validation-test-*.yaml")
 			if err != nil {
 				t.Fatalf("Failed to create temp file: %v", err)
 			}

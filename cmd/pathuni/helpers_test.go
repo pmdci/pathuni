@@ -201,6 +201,9 @@ func TestHelpers_CountValidSystemPaths(t *testing.T) {
 
 // Test the file reading functionality with edge cases
 func TestHelpers_ReadPathsFileEdgeCases(t *testing.T) {
+	setupTestFilesystem(t)
+	defer cleanupTestFilesystem()
+	
 	// Create a temporary test file with various edge cases
 	testContent := `# Comment at the start
 /usr/local/bin
@@ -215,7 +218,7 @@ func TestHelpers_ReadPathsFileEdgeCases(t *testing.T) {
 # Comment at end`
 	
 	// Create temporary file
-	tmpFile, err := os.CreateTemp("", "pathuni-test-*.txt")
+	tmpFile, err := os.CreateTemp("/tmp/pathuni/home/Pratt/.config/pathuni", "pathuni-test-*.txt")
 	if err != nil {
 		t.Fatalf("Failed to create temp file: %v", err)
 	}
@@ -333,6 +336,9 @@ func TestHelpers_SystemPathsIntegration(t *testing.T) {
 
 // Test path trimming and comment filtering
 func TestHelpers_PathProcessing(t *testing.T) {
+	setupTestFilesystem(t)
+	defer cleanupTestFilesystem()
+	
 	// Create a test file with various whitespace and comment scenarios
 	testCases := []string{
 		"  /path/with/leading/spaces  ",
@@ -345,7 +351,7 @@ func TestHelpers_PathProcessing(t *testing.T) {
 		"/path/after/empty/lines",
 	}
 	
-	tmpFile, err := os.CreateTemp("", "pathuni-whitespace-test-*.txt")
+	tmpFile, err := os.CreateTemp("/tmp/pathuni/home/Pratt/.config/pathuni", "pathuni-whitespace-test-*.txt")
 	if err != nil {
 		t.Fatalf("Failed to create temp file: %v", err)
 	}

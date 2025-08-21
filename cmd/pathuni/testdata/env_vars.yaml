@@ -5,7 +5,7 @@ all:
       tags:
         - personal
         - user
-    - "/usr/local/bin"  # Untagged system path
+    - "/tmp/pathuni/usr/local/bin"  # Untagged system path
 
 macos:
   paths:
@@ -13,7 +13,7 @@ macos:
       tags:
         - rust
         - dev
-    - "/opt/homebrew/bin"  # Untagged homebrew
+    - "/tmp/pathuni/opt/homebrew/bin"  # Untagged test path
     - path: "${HOME}/.node_modules/.bin"
       tags:
         - nodejs

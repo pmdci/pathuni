@@ -1,19 +1,19 @@
 all:
   paths:
-    - "/usr/bin"  # Untagged - should always be included
+    - "/tmp/pathuni/usr/bin"  # Untagged - test path
 
 macos:
   paths:
-    - "/usr/local/bin"  # Untagged - should always be included
-    - path: "/nonexistent/home/bin"
+    - "/tmp/pathuni/tmp"  # Untagged - test path
+    - path: "/garbage-fake-home-dir-xyz"
       tags:
         - home
         - personal
-    - path: "/nonexistent/work/bin"
+    - path: "/garbage-fake-work-dir-abc"
       tags:
         - work
         - dev
-    - path: "/nonexistent/gaming/bin"
+    - path: "/garbage-fake-gaming-dir-123"
       tags:
         - gaming
         - home

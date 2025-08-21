@@ -1,20 +1,20 @@
 all:
   paths:
-    - "/usr/local/bin"  # Plain string - exists on most Unix-based systems
-    - path: "/nonexistent/shared/bin"
+    - "/tmp/pathuni/usr/local/bin"  # Plain string - test path
+    - path: "/garbage-fake-shared-bin-xyz789"
       tags:
         - shared
         - common
 
 macos:
   paths:
-    - "/usr/bin"  # Plain string - should exist
-    - path: "/nonexistent/development/bin"
+    - "/tmp/pathuni/usr/bin"  # Plain string - test path
+    - path: "/garbage-fake-development-bin-abc123"
       tags:
         - dev
         - home
-    - path: "/nonexistent/gaming/bin"
+    - path: "/garbage-fake-gaming-bin-def456"
       tags:
         - gaming
         - home
-    - "/bin"  # Another plain string - should exist
+    - "/tmp/pathuni/bin"  # Another plain string - test path

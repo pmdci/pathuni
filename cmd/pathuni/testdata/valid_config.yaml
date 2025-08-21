@@ -1,26 +1,26 @@
 all:
   paths:
-    - "/usr/local/bin"  # Untagged - always included
-    - path: "$HOME/.local/bin"
+    - "/tmp/pathuni/usr/local/bin"  # Untagged - always included
+    - path: "/tmp/pathuni/home/Pratt/.local/bin"
       tags:
         - personal
         - dev
-    - path: "/usr/bin"
+    - path: "/tmp/pathuni/usr/bin"
       tags:
         - system
 
 macos:
   paths:
-    - "/opt/homebrew/bin"  # Untagged homebrew path
-    - path: "/opt/homebrew/sbin"
+    - "/tmp/pathuni/opt/homebrew/bin"  # Untagged test path
+    - path: "/tmp/pathuni/opt/homebrew/sbin"
       tags:
         - admin
         - homebrew
-    - path: "$HOME/.cargo/bin"
+    - path: "/tmp/pathuni/home/Pratt/.cargo/bin"
       tags:
         - rust
         - dev
-    - path: "/Applications/Docker.app/Contents/Resources/bin"
+    - path: "/tmp/pathuni/Applications/Docker.app/Contents/Resources/bin"
       tags:
         - docker
         - work
@@ -29,12 +29,12 @@ macos:
 
 linux:
   paths:
-    - "/snap/bin"  # Untagged snap path
-    - path: "/usr/games"
+    - "/tmp/pathuni/snap/bin"  # Untagged snap path
+    - path: "/tmp/pathuni/usr/games"
       tags:
         - gaming
         - leisure
-    - path: "$HOME/.npm-global/bin"
+    - path: "/tmp/pathuni/home/Pratt/.npm-global/bin"
       tags:
         - nodejs
         - dev
