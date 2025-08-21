@@ -1,0 +1,10 @@
+all:
+  paths:
+    - "$HOME/.local/bin"
+    - "${USER}/bin"
+    - "/usr/local/bin"
+
+macos:
+  paths:
+    - "$HOME/.cargo/bin"
+    - "/opt/homebrew/bin"

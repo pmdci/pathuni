@@ -158,7 +158,6 @@ func PrintEvaluationReport(configPath, platform, shell string, inferred bool, pl
 		fmt.Printf("  %s\n\n", renderers[shell](valid))
 	}
 	
-	fmt.Printf("To apply: run 'pathuni --shell=%s'\n", shell)
 	return nil
 }
 

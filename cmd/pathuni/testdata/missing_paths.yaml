@@ -1,0 +1,5 @@
+macos:
+  paths:
+    - "/nonexistent/directory"
+    - "/another/missing/path"
+    - "/usr/local/bin"  # This one should exist

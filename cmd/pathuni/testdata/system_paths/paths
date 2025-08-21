@@ -1,0 +1,6 @@
+# Mock /etc/paths file
+/usr/local/bin
+/usr/bin
+/bin
+/usr/sbin
+/sbin

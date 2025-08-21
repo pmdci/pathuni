@@ -1,0 +1,16 @@
+all:
+  paths:
+    - "/usr/local/bin"
+    - "$HOME/.local/bin"
+
+macos:
+  paths:
+    - "/opt/homebrew/bin"
+    - "/opt/homebrew/sbin"
+  powershell:
+    include_system_paths: true
+
+linux:
+  paths:
+    - "/snap/bin"
+    - "/usr/games"

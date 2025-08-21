@@ -1,0 +1,13 @@
+all:
+  paths:
+    - "/usr/local/bin"
+
+macos:
+  paths:
+    - "/opt/homebrew/bin"
+    - "/System/Library/Frameworks"
+
+linux:
+  paths:
+    - "/snap/bin"
+    - "/usr/games"
