@@ -1,13 +1,32 @@
 all:
   paths:
-    - "/usr/local/bin"
+    - "/usr/local/bin"  # Common untagged path
+    - path: "/usr/bin"
+      tags:
+        - essential
+        - system
 
 macos:
   paths:
-    - "/opt/homebrew/bin"
-    - "/System/Library/Frameworks"
+    - "/opt/homebrew/bin"  # Untagged homebrew
+    - path: "/System/Library/Frameworks"
+      tags:
+        - macos
+        - frameworks
+    - path: "/Applications/Xcode.app/Contents/Developer/usr/bin"
+      tags:
+        - xcode
+        - dev
+        - work
 
 linux:
   paths:
-    - "/snap/bin"
-    - "/usr/games"
+    - "/snap/bin"  # Untagged snap
+    - path: "/usr/games"
+      tags:
+        - linux
+        - gaming
+    - path: "/home/linuxbrew/.linuxbrew/bin"
+      tags:
+        - homebrew
+        - dev

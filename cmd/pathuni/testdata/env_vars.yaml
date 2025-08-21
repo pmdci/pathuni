@@ -1,10 +1,21 @@
 all:
   paths:
-    - "$HOME/.local/bin"
-    - "${USER}/bin"
-    - "/usr/local/bin"
+    - "$HOME/.local/bin"  # Untagged user bin
+    - path: "${USER}/bin"
+      tags:
+        - personal
+        - user
+    - "/usr/local/bin"  # Untagged system path
 
 macos:
   paths:
-    - "$HOME/.cargo/bin"
-    - "/opt/homebrew/bin"
+    - path: "$HOME/.cargo/bin"
+      tags:
+        - rust
+        - dev
+    - "/opt/homebrew/bin"  # Untagged homebrew
+    - path: "${HOME}/.node_modules/.bin"
+      tags:
+        - nodejs
+        - dev
+        - local

@@ -35,7 +35,7 @@ func TestShell_Names(t *testing.T) {
 	names := shellNames()
 	
 	// Check that we get expected shells
-	expectedShells := []string{"bash", "fish", "powershell", "sh", "zsh"}
+	expectedShells := []string{"ash", "bash", "dash", "fish", "ksh", "mksh", "powershell", "sh", "yash", "zsh"}
 	if len(names) != len(expectedShells) {
 		t.Errorf("Expected %d shells, got %d", len(expectedShells), len(names))
 	}

@@ -85,7 +85,7 @@ func TestHelpers_GetShellSpecificPaths(t *testing.T) {
 			name:  "bash no special paths",
 			shell: "bash",
 			platformConfig: PlatformConfig{
-				Paths: []string{"/usr/local/bin"},
+				Paths: []interface{}{"/usr/local/bin"},
 			},
 			expectPaths: false,
 		},
@@ -93,7 +93,7 @@ func TestHelpers_GetShellSpecificPaths(t *testing.T) {
 			name:  "powershell with include_system_paths false",
 			shell: "powershell",
 			platformConfig: PlatformConfig{
-				Paths: []string{"/usr/local/bin"},
+				Paths: []interface{}{"/usr/local/bin"},
 				PowerShell: &ShellConfig{
 					IncludeSystemPaths: false,
 				},
@@ -104,7 +104,7 @@ func TestHelpers_GetShellSpecificPaths(t *testing.T) {
 			name:  "powershell with include_system_paths true",
 			shell: "powershell",
 			platformConfig: PlatformConfig{
-				Paths: []string{"/usr/local/bin"},
+				Paths: []interface{}{"/usr/local/bin"},
 				PowerShell: &ShellConfig{
 					IncludeSystemPaths: true,
 				},
@@ -115,7 +115,7 @@ func TestHelpers_GetShellSpecificPaths(t *testing.T) {
 			name:  "powershell with nil config",
 			shell: "powershell",
 			platformConfig: PlatformConfig{
-				Paths: []string{"/usr/local/bin"},
+				Paths: []interface{}{"/usr/local/bin"},
 			},
 			expectPaths: false,
 		},

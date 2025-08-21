@@ -62,7 +62,14 @@ func getPathUniPaths() ([]string, error) {
 	configPath := getConfigPath()
 	osName := getOSName()
 	shellName, _ := getShellName()
-	paths, _, err := collectValidPaths(configPath, osName, shellName, platformOnly)
+	
+	// Parse tag filters
+	tagFilter, err := parseTagFlags(tagsInclude, tagsExclude)
+	if err != nil {
+		return nil, err
+	}
+	
+	paths, _, err := collectValidPaths(configPath, osName, shellName, platformOnly, tagFilter)
 	return paths, err
 }
 

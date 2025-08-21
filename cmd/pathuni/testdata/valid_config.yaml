@@ -1,16 +1,40 @@
 all:
   paths:
-    - "/usr/local/bin"
-    - "$HOME/.local/bin"
+    - "/usr/local/bin"  # Untagged - always included
+    - path: "$HOME/.local/bin"
+      tags:
+        - personal
+        - dev
+    - path: "/usr/bin"
+      tags:
+        - system
 
 macos:
   paths:
-    - "/opt/homebrew/bin"
-    - "/opt/homebrew/sbin"
+    - "/opt/homebrew/bin"  # Untagged homebrew path
+    - path: "/opt/homebrew/sbin"
+      tags:
+        - admin
+        - homebrew
+    - path: "$HOME/.cargo/bin"
+      tags:
+        - rust
+        - dev
+    - path: "/Applications/Docker.app/Contents/Resources/bin"
+      tags:
+        - docker
+        - work
   powershell:
     include_system_paths: true
 
 linux:
   paths:
-    - "/snap/bin"
-    - "/usr/games"
+    - "/snap/bin"  # Untagged snap path
+    - path: "/usr/games"
+      tags:
+        - gaming
+        - leisure
+    - path: "$HOME/.npm-global/bin"
+      tags:
+        - nodejs
+        - dev

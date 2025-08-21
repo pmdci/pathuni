@@ -8,7 +8,7 @@ import (
 )
 
 var supportedShells = map[string]struct{}{
-	"bash": {}, "zsh": {}, "sh": {},
+	"bash": {}, "zsh": {}, "sh": {}, "dash": {}, "ash": {}, "ksh": {}, "mksh": {}, "yash": {},
 	"fish": {},
 	"powershell": {},
 }
@@ -31,6 +31,11 @@ var renderers = map[string]func([]string) string{
 	"bash":       renderBash,
 	"zsh":        renderBash,
 	"sh":         renderBash,
+	"dash":       renderBash,
+	"ash":        renderBash,
+	"ksh":        renderBash,
+	"mksh":       renderBash,
+	"yash":       renderBash,
 	"fish":       renderFish,
 	"powershell": renderPwsh,
 }
@@ -57,7 +62,14 @@ func runInit() {
 		os.Exit(1)
 	}
 
-	paths, _, err := collectValidPaths(configPath, osName, shellName, platformOnly)
+	// Parse tag filters
+	tagFilter, err := parseTagFlags(tagsInclude, tagsExclude)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error parsing tag filters: %v\n", err)
+		os.Exit(1)
+	}
+
+	paths, _, err := collectValidPaths(configPath, osName, shellName, platformOnly, tagFilter)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error reading config file: %v\n", err)
 		os.Exit(1)

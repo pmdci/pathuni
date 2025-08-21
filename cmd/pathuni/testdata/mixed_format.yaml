@@ -1,0 +1,20 @@
+all:
+  paths:
+    - "/usr/local/bin"  # Plain string - exists on most Unix-based systems
+    - path: "/nonexistent/shared/bin"
+      tags:
+        - shared
+        - common
+
+macos:
+  paths:
+    - "/usr/bin"  # Plain string - should exist
+    - path: "/nonexistent/development/bin"
+      tags:
+        - dev
+        - home
+    - path: "/nonexistent/gaming/bin"
+      tags:
+        - gaming
+        - home
+    - "/bin"  # Another plain string - should exist

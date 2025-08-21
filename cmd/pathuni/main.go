@@ -18,6 +18,8 @@ var (
 	platformOnly bool
 	dumpFormat   string
 	dumpInclude  string
+	tagsInclude  string
+	tagsExclude  string
 )
 
 func getConfigPath() string {
@@ -107,10 +109,12 @@ Validates that directories exist before including them.`,
 
 func init() {
 	// Add persistent flags (available to all commands)
-	rootCmd.PersistentFlags().StringVarP(&shell, "shell", "s", "", "Shell type: bash|zsh|sh|fish|powershell (auto-detected if not specified)")
+	rootCmd.PersistentFlags().StringVarP(&shell, "shell", "s", "", "Shell type: sh|ash|bash|dash|ksh|mksh|yash|zsh|fish|powershell (auto-detected if not specified)")
 	// If building for Windows in the future, will need to be something like %USERPROFILE%\AppData\Local\pathuni\my_paths.yaml
 	rootCmd.PersistentFlags().StringVarP(&config, "config", "c", "", "Path to config file (default: ~/.config/pathuni/my_paths.yaml)")
 	rootCmd.PersistentFlags().BoolVarP(&platformOnly, "platform-only", "p", false, "Include only platform-specific paths, skip 'All' section")
+	rootCmd.PersistentFlags().StringVarP(&tagsInclude, "tags-include", "t", "", "Include paths with tags (comma=OR, plus=AND): home,dev or work+server")
+	rootCmd.PersistentFlags().StringVarP(&tagsExclude, "tags-exclude", "x", "", "Exclude paths with tags (comma=OR, plus=AND): gaming,temp or work+gaming")
 
 	// Add subcommands
 	rootCmd.AddCommand(initCmd)
@@ -124,7 +128,10 @@ func init() {
 
 	// Custom version template
 	rootCmd.SetVersionTemplate(`pathuni ` + Version + `
-Copyright (C) 2025 Pedro Innecco <https://pedroinnecco.com>
+
+░█▀█░█▀█░▀█▀░█░█░█░█░█▀█░▀█▀ Copyright (C) 2025 Pedro Innecco
+░█▀▀░█▀█░░█░░█▀█░█░█░█░█░░█░ <https://pedroinnecco.com>
+░▀░░░▀░▀░░▀░░▀░▀░▀▀▀░▀░▀░▀▀▀
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by

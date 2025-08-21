@@ -1,0 +1,33 @@
+all:
+  paths:
+    - "/usr/local/bin"  # Found + untagged
+    - path: "/usr/bin"
+      tags:
+        - essential
+        - system
+    - "/usr/garbage-nonexistent-untagged"  # Not found + untagged
+    - path: "/usr/garbage-nonexistent-tagged"
+      tags:
+        - missing
+        - test
+
+macos:
+  paths:
+    - "/opt/homebrew/bin"  # Found + untagged (if homebrew installed)
+    - path: "/System/Library/Frameworks"
+      tags:
+        - macos
+        - frameworks
+    - "/Applications/NonExistent.app/Contents/MacOS"  # Not found + untagged
+    - path: "/Applications/NonExistentTagged.app/Contents/MacOS"
+      tags:
+        - missing
+        - work
+
+linux:
+  paths:
+    - "/snap/bin"  # Found + untagged (if snap installed)
+    - path: "/usr/games"
+      tags:
+        - linux
+        - gaming

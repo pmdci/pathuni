@@ -1,0 +1,69 @@
+version: 2
+
+before:
+  hooks:
+    - go mod tidy
+    - go test ./...
+
+builds:
+  - id: pathuni
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    main: ./cmd/pathuni
+    binary: pathuni
+    ldflags:
+      - -s -w
+      - -X main.Version={{.Version}}
+    flags:
+      - -trimpath
+
+archives:
+  - id: pathuni
+    builds:
+      - pathuni
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}
+
+checksum:
+  name_template: 'checksums.txt'
+
+snapshot:
+  name_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+
+brews:
+  - name: pathuni
+    homepage: https://github.com/pmdci/pathuni
+    description: "Cross-platform PATH management tool for dotfiles"
+    license: MIT
+    repository:
+      owner: pmdci
+      name: homebrew-tap
+    folder: Formula
+    test: |
+      system "#{bin}/pathuni --version"
+
+release:
+  github:
+    owner: pmdci
+    name: pathuni
+  draft: false
+  prerelease: auto
+  mode: replace

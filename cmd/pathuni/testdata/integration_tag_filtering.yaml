@@ -1,0 +1,19 @@
+all:
+  paths:
+    - "/usr/bin"  # Untagged - should always be included
+
+macos:
+  paths:
+    - "/usr/local/bin"  # Untagged - should always be included
+    - path: "/nonexistent/home/bin"
+      tags:
+        - home
+        - personal
+    - path: "/nonexistent/work/bin"
+      tags:
+        - work
+        - dev
+    - path: "/nonexistent/gaming/bin"
+      tags:
+        - gaming
+        - home

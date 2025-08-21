@@ -1,5 +1,12 @@
 macos:
   paths:
-    - "/nonexistent/directory"
-    - "/another/missing/path"
-    - "/usr/local/bin"  # This one should exist
+    - "/nonexistent/directory"  # Untagged missing path
+    - path: "/another/missing/path"
+      tags:
+        - missing
+        - test
+    - "/usr/local/bin"  # Untagged existing path
+    - path: "/fake/work/bin"
+      tags:
+        - work
+        - missing
