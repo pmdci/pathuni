@@ -35,6 +35,18 @@ make install  # copies to ~/.local/bin
 
 Download pre-built binaries from the [releases page](https://github.com/pmdci/pathuni/releases).
 
+**macOS Users:** Downloaded binaries may be blocked by Gatekeeper. After downloading, run:
+
+```bash
+xattr -d com.apple.quarantine pathuni
+```
+
+Or alternatively:
+
+```bash
+codesign -s - pathuni # You might need additional flags
+```
+
 ## Usage
 
 Create `~/.config/pathuni/my_paths.yaml`:
@@ -257,8 +269,8 @@ Areas that could use help:
 - Windows support
 - \*BSD support
 - Additional shell support:
-  - C shells (csh, tcsh)
-  - Next-gen, post-POSIX shells: elvish, nushell (nu), xonsh
+  - C shells (csh, tcsh, ...)
+  - Next-gen, post-POSIX shells (elvish, nushell (nu), xonsh, ...)
 - Performance improvements
 
 ## Development
