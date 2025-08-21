@@ -22,6 +22,33 @@ jobs:
         with:
           go-version: '1.23'
 
+      - name: Check if UPX exists
+        id: check-upx
+        run: |
+          if command -v upx >/dev/null 2>&1; then
+            echo "available=true" >> $GITHUB_OUTPUT
+            echo "UPX found: $(which upx)"
+          else
+            echo "available=false" >> $GITHUB_OUTPUT
+            echo "UPX not found"
+          fi
+
+      - name: Install UPX (if needed)
+        if: steps.check-upx.outputs.available == 'false'
+        uses: crazy-max/ghaction-upx@v3
+        with:
+          install-only: true
+        continue-on-error: true
+
+      - name: Verify UPX installation
+        run: |
+          if command -v upx >/dev/null 2>&1; then
+            echo "UPX available: $(which upx)"
+            upx --version
+          else
+            echo "UPX not available - binaries will not be compressed"
+          fi
+
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v6
         with:

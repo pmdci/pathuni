@@ -16,7 +16,11 @@ builds:
     ldflags:
       - -s -w
       - -X main.Version={{.Version}}
+      - -extldflags=-Wl,--strip-all
     flags: [-trimpath]
+    hooks:
+      post:
+        - cmd: sh -c 'if command -v upx >/dev/null 2>&1; then if [ "{{ .Os }}" = "darwin" ]; then upx --force-macos --best "{{ .Path }}" || echo "UPX compression failed for {{ .Path }}, continuing..."; else upx --best "{{ .Path }}" || echo "UPX compression failed for {{ .Path }}, continuing..."; fi; else echo "UPX not available, skipping compression for {{ .Path }}"; fi'
 
 archives:
   - id: pathuni
