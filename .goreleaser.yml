@@ -21,6 +21,7 @@ builds:
     hooks:
       post:
         - cmd: sh -c 'if command -v upx >/dev/null 2>&1; then if [ "{{ .Os }}" = "darwin" ]; then echo "UPX compression for macOS is officially unsupported until further notice. Skipping... {{ .Path }}..."; else upx --best "{{ .Path }}" || echo "UPX compression failed for {{ .Path }}, continuing..."; fi; else echo "UPX not available, skipping compression for {{ .Path }}"; fi'
+        - cmd: echo "🚀 Built pathuni {{ .Version }} at {{ .Path }}"
 
 archives:
   - id: pathuni
@@ -37,7 +38,7 @@ checksum:
   name_template: "checksums.txt"
 
 snapshot:
-  version_template: "{{ incpatch .Version }}-next" # fixed
+  version_template: "{{ .Summary }}" # uses git describe --tags --always --dirty
 
 changelog:
   sort: asc

@@ -11,6 +11,7 @@ PLATFORMS := darwin/arm64 darwin/amd64 linux/amd64 linux/arm64
 build:
 	mkdir -p bin
 	go build -ldflags="$(LDFLAGS_COMMON)" $(BUILD_FLAGS) -o bin/pathuni ./cmd/pathuni
+	@echo "🚀 Built pathuni $(VERSION)"
 
 # Release build with maximum optimization and static linking
 build-release:
@@ -27,6 +28,7 @@ build-release:
 	else \
 		echo "UPX not found, skipping compression (binary size: $$(du -h bin/pathuni | cut -f1))"; \
 	fi
+	@echo "🚀 Built pathuni $(VERSION)"
 
 # Cross-compile for multiple platforms
 cross-compile:
@@ -46,6 +48,7 @@ cross-compile:
 		echo "UPX not found, skipping compression."; \
 		echo "Cross-compilation complete. Binaries in bin/"; \
 	fi
+	@echo "🚀 Built pathuni $(VERSION) for $(PLATFORMS)"
 
 clean:
 	rm -rf bin/
