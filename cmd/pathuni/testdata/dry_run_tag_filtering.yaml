@@ -1,0 +1,44 @@
+# Test configuration for dry-run tag filtering scenarios
+# This config corresponds to the spec example:
+# pathuni dry-run --tags-include=dev+work,audio --tags-exclude=gaming,video
+
+# Expected results:
+# 5 Included Paths: usr/local/go/bin, home/Pratt/.cargo/bin, Applications/Docker.app/Contents/Resources/bin, home/Pratt/.npm-global/bin, usr/local/bin
+# 8 Skipped Paths: opt/games/bin, System/Library/Frameworks, usr/local/node/bin, Applications/Xcode.app/Contents/Developer/usr/bin, home/Pratt/.local/bin, opt/homebrew/bin, usr/games, nonexistent/path
+
+all:
+  paths:
+    - "/tmp/pathuni/usr/local/bin"  # no tags → always included
+
+macos:
+  paths:
+    # INCLUDED PATHS (match dev+work OR audio, no gaming/video)
+    - path: "/tmp/pathuni/usr/local/go/bin"
+      tags: [dev, work]  # matches dev+work
+    - path: "/tmp/pathuni/home/Pratt/.cargo/bin" 
+      tags: [dev, work, audio]  # matches dev+work
+    - path: "/tmp/pathuni/Applications/Docker.app/Contents/Resources/bin"
+      tags: [audio]  # matches audio
+    - path: "/tmp/pathuni/home/Pratt/.npm-global/bin"
+      tags: [audio, personal]  # matches audio
+    
+    # EXCLUDED PATHS - matches exclude filters
+    - path: "/tmp/pathuni/opt/games/bin"
+      tags: [gaming]  # matches gaming exclude
+    - path: "/tmp/pathuni/System/Library/Frameworks"
+      tags: [video]  # matches video exclude
+    - path: "/tmp/pathuni/usr/local/node/bin"
+      tags: [gaming, dev, work]  # matches dev+work but gaming excludes (exclude wins)
+    - path: "/tmp/pathuni/Applications/Xcode.app/Contents/Developer/usr/bin"
+      tags: [video, audio]  # matches audio but video excludes (exclude wins)
+    
+    # EXCLUDED PATHS - doesn't match include filters
+    - path: "/tmp/pathuni/home/Pratt/.local/bin"
+      tags: [dev]  # has dev but missing work, no audio
+    - path: "/tmp/pathuni/opt/homebrew/bin"
+      tags: [work]  # has work but missing dev, no audio
+    - path: "/tmp/pathuni/usr/games"
+      tags: [personal]  # doesn't match any include condition
+    
+    # Path that doesn't exist (will be [!] not found)
+    - "/tmp/pathuni/nonexistent/path"

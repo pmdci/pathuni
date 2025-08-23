@@ -155,13 +155,14 @@ func parseTagFlags(includeFlag, excludeFlag string) (TagFilter, error) {
 // shouldIncludePath determines if a path should be included based on tag filters
 // Returns true if the path should be included, false otherwise
 // Logic:
-// - If no tags on path: always include (untagged paths are immune to filtering)
+// - If pathTags is empty and isExplicitlyTagged is false: always include (untagged paths are immune to filtering)
+// - If pathTags is empty and isExplicitlyTagged is true: apply normal filtering (explicitly no tags)
 // - If include filter exists and path doesn't match: exclude
 // - If exclude filter exists and path matches: exclude (exclude wins)
 // - Otherwise: include
-func shouldIncludePath(pathTags []string, filter TagFilter) bool {
-	// Untagged paths are always included (immune to filtering)
-	if len(pathTags) == 0 {
+func shouldIncludePath(pathTags []string, isExplicitlyTagged bool, filter TagFilter) bool {
+	// Truly untagged paths (not explicitly tagged) are always included (immune to filtering)
+	if len(pathTags) == 0 && !isExplicitlyTagged {
 		return true
 	}
 	
@@ -177,4 +178,92 @@ func shouldIncludePath(pathTags []string, filter TagFilter) bool {
 	
 	// No filters applied, include by default
 	return true
+}
+
+// getPathSkipReasons returns the reasons why a path should be skipped, or nil if included
+func getPathSkipReasons(pathTags []string, isExplicitlyTagged bool, filter TagFilter) []SkipReason {
+	// Truly untagged paths (not explicitly tagged) are always included
+	if len(pathTags) == 0 && !isExplicitlyTagged {
+		return nil
+	}
+	
+	// Check exclude conditions first (exclude wins)
+	if len(filter.Exclude) > 0 {
+		if excludeReason := getExcludeReason(pathTags, filter.Exclude); excludeReason != "" {
+			return []SkipReason{{Type: "tags", Detail: excludeReason}}
+		}
+	}
+	
+	// Check include conditions
+	if len(filter.Include) > 0 {
+		if includeReason := getIncludeFailureReason(pathTags, filter.Include); includeReason != "" {
+			return []SkipReason{{Type: "tags", Detail: includeReason}}
+		}
+	}
+	
+	// No filters applied or path matches include, include by default
+	return nil
+}
+
+// getExcludeReason returns a reason string if path matches exclude conditions, empty otherwise
+func getExcludeReason(pathTags []string, excludeConditions [][]string) string {
+	pathTagsLower := make(map[string]bool)
+	for _, tag := range pathTags {
+		pathTagsLower[strings.ToLower(tag)] = true
+	}
+	
+	// Find the first exclude condition that matches
+	for _, andGroup := range excludeConditions {
+		allMatch := true
+		for _, requiredTag := range andGroup {
+			if !pathTagsLower[strings.ToLower(requiredTag)] {
+				allMatch = false
+				break
+			}
+		}
+		
+		if allMatch {
+			// Find which tag from pathTags matches this condition
+			for _, pathTag := range pathTags {
+				for _, excludeTag := range andGroup {
+					if strings.EqualFold(pathTag, excludeTag) {
+						return fmt.Sprintf("%s = %s", pathTag, excludeTag)
+					}
+				}
+			}
+		}
+	}
+	
+	return ""
+}
+
+// getIncludeFailureReason returns a reason string if path fails include conditions, empty otherwise
+func getIncludeFailureReason(pathTags []string, includeConditions [][]string) string {
+	if matchesTagConditions(pathTags, includeConditions) {
+		return "" // Path matches include conditions
+	}
+	
+	// Path doesn't match include conditions, generate reason
+	// Format the include conditions as a readable string
+	conditionStr := formatTagConditions(includeConditions)
+	
+	// Find the best representative tag from the path to show in the comparison
+	if len(pathTags) > 0 {
+		return fmt.Sprintf("%s != %s", pathTags[0], conditionStr)
+	}
+	
+	return fmt.Sprintf("no tags != %s", conditionStr)
+}
+
+// formatTagConditions converts tag conditions to readable string like "dev+work,audio"
+func formatTagConditions(conditions [][]string) string {
+	var parts []string
+	for _, andGroup := range conditions {
+		if len(andGroup) == 1 {
+			parts = append(parts, andGroup[0])
+		} else {
+			parts = append(parts, strings.Join(andGroup, "+"))
+		}
+	}
+	return strings.Join(parts, ",")
 }

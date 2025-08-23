@@ -109,7 +109,7 @@ Validates that directories exist before including them.`,
 
 func init() {
 	// Add persistent flags (available to all commands)
-	rootCmd.PersistentFlags().StringVarP(&shell, "shell", "s", "", "Shell type: sh|ash|bash|dash|ksh|mksh|yash|zsh|fish|powershell (auto-detected if not specified)")
+	rootCmd.PersistentFlags().StringVarP(&shell, "shell", "S", "", "Shell type: sh|ash|bash|dash|ksh|mksh|yash|zsh|fish|powershell (detected if not specified)")
 	// If building for Windows in the future, will need to be something like %USERPROFILE%\AppData\Local\pathuni\my_paths.yaml
 	rootCmd.PersistentFlags().StringVarP(&config, "config", "c", "", "Path to config file (default: ~/.config/pathuni/my_paths.yaml)")
 	rootCmd.PersistentFlags().BoolVarP(&platformOnly, "platform-only", "p", false, "Include only platform-specific paths, skip 'All' section")

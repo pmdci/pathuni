@@ -53,32 +53,32 @@ Create `~/.config/pathuni/my_paths.yaml`:
 
 ```yaml
 all:
+  tags: [base, essential]                     # Platform-level tags (NEW in v0.4.5)
   paths:
-    - "$HOME/.local/bin"
-    - path: "$HOME/.cargo/bin"
-      tags:
-        - rust
-        - dev
+    - "$HOME/.local/bin"                      # Inherits: [base, essential]
+    - path: "$HOME/.cargo/bin"                # Explicit tags override inheritance
+      tags: [rust, dev]
 
 macos:
+  tags: [mac, gui]                            # Platform-level tags for macOS
   paths:
-    - "/opt/homebrew/bin"
-    - path: "/opt/homebrew/sbin"
-      tags:
-        - admin
-        - homebrew
+    - "/opt/homebrew/bin"                     # Inherits: [mac, gui]
+    - path: "/opt/homebrew/sbin"              # Explicit tags override
+      tags: [admin, homebrew]
     - path: "/Applications/Docker.app/Contents/Resources/bin"
-      tags:
-        - docker
-        - work
+      tags: [docker, work]
+    - path: "/usr/local/special"              # Explicit empty override
+      tags: []                                # No tags (breaks inheritance)
 
 linux:
+  # No tags field - platform has no tags to inherit
   paths:
-    - "/home/linuxbrew/.linuxbrew/bin"
-    - path: "/home/linuxbrew/.linuxbrew/sbin"
-      tags:
-        - admin
-        - homebrew
+    - "/home/linuxbrew/.linuxbrew/bin"        # No inheritance = no tags
+    - "/usr/local/bin"                        # No inheritance = no tags
+    - path: "/home/linuxbrew/.linuxbrew/sbin" # Explicit tags still work
+      tags: [admin, homebrew]
+    - path: "/opt/simple/bin"                 # Path object without tags field
+      # Missing tags field + no platform tags = no tags
 ```
 
 ### Shell-specific Configuration
@@ -92,6 +92,47 @@ macos:
 ```
 
 With this setting, PowerShell will get the same comprehensive PATH that zsh/bash get automatically, including standard system directories like `/usr/bin`, `/bin`, etc.
+
+### Platform-Level Tag Inheritance (NEW in v0.4.5)
+
+You can now define tags at the platform level (`all`, `macos`, `linux`) that are automatically inherited by simple string paths. This reduces repetition and makes configuration more maintainable:
+
+```yaml
+all:
+  tags: [base, essential]                     # All simple paths inherit these tags
+  paths:
+    - "/usr/local/bin"                        # Gets tags: [base, essential]
+    - "/usr/bin"                              # Gets tags: [base, essential]
+    - path: "/special/bin"                    # Explicit tags override inheritance
+      tags: [admin, work]                     # Gets tags: [admin, work] - no inheritance
+    - path: "/no/tags/bin"                    # Explicit empty array breaks inheritance
+      tags: []                                # Gets no tags (not [base, essential])
+
+macos:
+  tags: [mac, desktop]                        # macOS-specific inheritance
+  paths:
+    - "/opt/homebrew/bin"                     # Gets tags: [mac, desktop]
+    - path: "/Applications/Docker.app/Contents/Resources/bin"
+      tags: [docker]                          # Gets tags: [docker] - overrides inheritance
+```
+
+**Key inheritance rules:**
+
+- **Simple string paths** (like `"/usr/local/bin"`) inherit platform tags
+- **Explicit path objects** with `tags:` field override inheritance completely
+- **Empty tags array** (`tags: []`) explicitly means "no tags" (breaks inheritance)
+- **Missing tags field** means "inherit platform tags"
+
+This is especially powerful for filtering:
+
+```bash
+# Include only paths with platform-specific tags
+pathuni dry-run --tags-include=mac   # Only macOS-tagged paths
+pathuni dry-run --tags-include=base  # Only base-tagged paths from 'all'
+
+# Exclude specific platforms
+pathuni dry-run --tags-exclude=linux # Exclude Linux-tagged paths
+```
 
 ### Tag-based Path Filtering
 
@@ -171,55 +212,80 @@ pathuni dump --format=yaml --include=pathuni
 pathuni d -f json -i all  # using shortcuts and short flags
 ```
 
-**Example dry-run outputs:**
+**Example dry-run outputs (NEW improved tree structure in v0.4.5):**
 
 ```bash
-# All paths included (default behavior)
-$ pathuni dry-run --shell=zsh
+# All paths included (no filtering)
+$ pathuni dry-run
+Evaluating: /Users/you/.config/pathuni/my_paths.yaml
+
+OS    : macOS
+Shell : zsh (detected)
+
+5 Included Paths:
+  [+] /Users/you/.local/bin
+  [+] /Users/you/.cargo/bin
+  [+] /opt/homebrew/bin
+  [+] /opt/homebrew/sbin
+  [+] /usr/local/special
+
+1 Skipped Path:
+  [!] /Applications/Docker.app/Contents/Resources/bin (not found)
+
+5 paths included in total
+1 skipped in total
+
+Output would be:
+  export PATH="/Users/you/.local/bin:/Users/you/.cargo/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/special"
+
+# With tag filtering showing detailed skip reasons
+$ pathuni dry-run --tags-include=essential
+Evaluating: /Users/you/.config/pathuni/my_paths.yaml
+
+OS    : macOS
+Shell : zsh (detected)
+
+1 Included Path:
+  [+] /Users/you/.local/bin
+
+4 Skipped Paths:
+  [-] /Users/you/.cargo/bin
+       └rust != essential
+  [-] /opt/homebrew/bin
+       └mac != essential
+  [-] /opt/homebrew/sbin
+       └admin != essential
+  [!] /Applications/Docker.app/Contents/Resources/bin (not found)
+
+1 path included in total
+4 skipped in total
+
+Output would be:
+  export PATH="/Users/you/.local/bin"
+
+# Complex filtering with inheritance and explicit empty tags,
+# specifying zsh as the shell
+$ pathuni dry-run --tags-exclude=gui --shell=zsh
 Evaluating: /Users/you/.config/pathuni/my_paths.yaml
 
 OS    : macOS
 Shell : zsh (specified)
 
-4 Included Paths:
-  [+] /Users/you/.local/bin
-  [+] /Users/you/.cargo/bin
-  [+] /opt/homebrew/bin
-  [+] /opt/homebrew/sbin
+3 Included Paths:
+  [+] /Users/you/.local/bin     # [base, essential]
+  [+] /Users/you/.cargo/bin     # [rust, dev]
+  [+] /usr/local/special        # [] (explicit empty - immune to gui filter)
 
-2 Skipped Paths (not found):
-  [!] /nonexistent/missing/bin
-  [!] /another/missing/path
+2 Skipped Paths:
+  [-] /opt/homebrew/bin
+       └mac = gui (inherited platform tag)
+  [!] /Applications/Docker.app/Contents/Resources/bin (not found)
 
-4 paths included in total
+3 paths included in total
 2 skipped in total
 
 Output would be:
-  export PATH="/Users/you/.local/bin:/Users/you/.cargo/bin:/opt/homebrew/bin:/opt/homebrew/sbin"
-
-# With tag filtering and mixed skip reasons
-$ pathuni dry-run --tags-exclude=personal --shell=zsh
-
-OS    : macOS
-Shell : zsh (specified)
-
-3 Included Paths:
-  [+] /Users/you/.local/bin
-  [+] /opt/homebrew/bin
-  [+] /opt/homebrew/sbin
-
-2 Skipped Paths (not found):
-  [!] /nonexistent/missing/bin
-  [!] /another/missing/path
-
-1 Skipped Path (filtered by tags):
-  [-] /Users/you/Documents
-
-3 paths included in total
-3 skipped in total
-
-Output would be:
-  export PATH="/Users/you/.local/bin:/opt/homebrew/bin:/opt/homebrew/sbin"
+  export PATH="/Users/you/.local/bin:/Users/you/.cargo/bin:/usr/local/special"
 ```
 
 **Example dump outputs:**
@@ -255,7 +321,9 @@ Most dotfiles managers are heavyweight solutions for simple PATH management. Pat
 
 - **Cross-platform**: Works on macOS, Linux with plans for Windows/\*BSD
 - **Multi-shell**: bash, zsh, fish, PowerShell support
+- **Platform-level tag inheritance**: Define tags once per platform, inherit automatically
 - **Tag-based filtering**: Include/exclude paths by context (dev, work, gaming, etc.)
+- **Improved dry-run output**: Tree-structured output with detailed skip reasons
 - **Path validation**: Only includes directories that actually exist
 - **Lightweight**: Single binary, no dependencies
 - **Mixed format**: Support both simple strings and tagged path entries
@@ -276,8 +344,8 @@ Areas that could use help:
 ## Development
 
 ```bash
-make build         # Build optimized binary to bin/pathuni
-make build-release # Build with maximum optimization + UPX compression (if available)
+make build         # Build optimised binary to bin/pathuni
+make build-release # Build with maximum optimisation + UPX compression (if available)
 make cross-compile # Build for multiple platforms (macOS/Linux on ARM64/AMD64)
 make test          # Run all tests
 make clean         # Clean build artifacts
@@ -285,9 +353,9 @@ make dev           # Quick build + run evaluation preview
 make install       # Copy binary to ~/.local/bin
 ```
 
-### Binary Size Optimization
+### Binary Size Optimisation
 
-The build system includes several optimizations:
+The build system includes several optimisations:
 
 - **Compiler flags**: `-s -w -trimpath` remove debug symbols and build paths
 - **UPX compression**: Automatically applied in `build-release` and `cross-compile` if UPX is installed
@@ -297,5 +365,5 @@ The build system includes several optimizations:
 Size comparison (typical results as of v0.4.0):
 
 - Default Go build: ~6MB
-- Optimized build: ~4MB (31% reduction)
+- Optimised build: ~4MB (31% reduction)
 - With UPX: ~1.6MB (74% reduction)

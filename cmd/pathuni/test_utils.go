@@ -23,6 +23,7 @@ func setupTestFilesystem(t *testing.T) {
 		"/tmp/pathuni/sbin", 
 		"/tmp/pathuni/tmp",
 		"/tmp/pathuni/snap/bin",
+		"/tmp/pathuni/opt/games/bin",
 		"/tmp/pathuni/opt/homebrew/bin",
 		"/tmp/pathuni/opt/homebrew/sbin",
 		"/tmp/pathuni/home/Pratt/.local/bin",
@@ -38,6 +39,9 @@ func setupTestFilesystem(t *testing.T) {
 		"/tmp/pathuni/System/Library/Frameworks",
 		"/tmp/pathuni/usr/local/go/bin",
 		"/tmp/pathuni/usr/local/node/bin",
+		"/tmp/pathuni/opt/dev/bin",
+		"/tmp/pathuni/opt/server/bin",
+		"/tmp/pathuni/opt/work/bin",
 	}
 	
 	for _, dir := range testDirs {

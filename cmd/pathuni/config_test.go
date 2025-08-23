@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"gopkg.in/yaml.v3"
 )
 
 func TestConfig_YAMLParsing(t *testing.T) {
@@ -519,6 +521,37 @@ func TestConfig_TagValidationErrors(t *testing.T) {
         - dev`,
 			expectError: false,
 		},
+		{
+			name: "invalid platform-level tag format",
+			configContent: `all:
+  tags: [base, "2invalid"]
+  paths:
+    - "/test/path"`,
+			expectError:   true,
+			errorContains: "invalid tag '2invalid'",
+		},
+		{
+			name: "duplicate platform-level tags",
+			configContent: `macos:
+  tags: [mac, desktop, mac]
+  paths:
+    - "/test/path"`,
+			expectError:   true,
+			errorContains: "duplicate tag 'mac'",
+		},
+		{
+			name: "valid platform-level tags",
+			configContent: `all:
+  tags: [base, essential]
+  paths:
+    - "/test/path"
+macos:
+  tags: [mac, desktop]
+  paths:
+    - path: "/another/path"
+      tags: [dev]`,
+			expectError: false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -545,6 +578,109 @@ func TestConfig_TagValidationErrors(t *testing.T) {
 			} else {
 				if err != nil {
 					t.Errorf("Unexpected error for %s: %v", tt.name, err)
+				}
+			}
+		})
+	}
+}
+// TestPathEntry_GetEffectiveTags tests platform-level tag inheritance logic
+func TestPathEntry_GetEffectiveTags(t *testing.T) {
+	platformTags := []string{"mac", "desktop"}
+	
+	tests := []struct {
+		name     string
+		entry    PathEntry
+		expected []string
+	}{
+		{
+			name:     "explicit tags override platform tags",
+			entry:    PathEntry{Path: "/test", Tags: []string{"dev", "work"}},
+			expected: []string{"dev", "work"},
+		},
+		{
+			name:     "explicit empty tags override platform tags",
+			entry:    PathEntry{Path: "/test", Tags: []string{}},
+			expected: []string{},
+		},
+		{
+			name:     "no tags field inherits platform tags",
+			entry:    PathEntry{Path: "/test"}, // Tags field is nil
+			expected: []string{"mac", "desktop"},
+		},
+		{
+			name:     "inherit from empty platform tags",
+			entry:    PathEntry{Path: "/test"},
+			expected: []string{},
+		},
+	}
+	
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var platformTagsToUse []string
+			if tt.name == "inherit from empty platform tags" {
+				platformTagsToUse = []string{}
+			} else {
+				platformTagsToUse = platformTags
+			}
+			
+			result := tt.entry.GetEffectiveTags(platformTagsToUse)
+			
+			if len(result) != len(tt.expected) {
+				t.Errorf("Expected %d tags, got %d: %v vs %v", len(tt.expected), len(result), tt.expected, result)
+				return
+			}
+			
+			for i, expected := range tt.expected {
+				if result[i] != expected {
+					t.Errorf("Expected tag[%d] = %s, got %s", i, expected, result[i])
+				}
+			}
+		})
+	}
+}
+
+// TestExtractPathEntries_EmptyTags tests that empty tags are parsed correctly  
+func TestExtractPathEntries_EmptyTags(t *testing.T) {
+	tests := []struct {
+		name        string
+		pathsYAML   string
+		expectedNil []bool // true if Tags should be nil, false if should be empty slice
+	}{
+		{
+			name: "empty tags vs no tags field",
+			pathsYAML: `- path: "/test1"
+  tags: []
+- path: "/test2"`,
+			expectedNil: []bool{false, true}, // first has empty slice, second has nil
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var pathsInterface []interface{}
+			err := yaml.Unmarshal([]byte(tt.pathsYAML), &pathsInterface)
+			if err != nil {
+				t.Fatalf("Failed to unmarshal YAML: %v", err)
+			}
+
+			entries, err := extractPathEntries(pathsInterface, "test context")
+			if err != nil {
+				t.Fatalf("extractPathEntries failed: %v", err)
+			}
+
+			if len(entries) != len(tt.expectedNil) {
+				t.Fatalf("Expected %d entries, got %d", len(tt.expectedNil), len(entries))
+			}
+
+			for i, entry := range entries {
+				isNil := entry.Tags == nil
+				expectedNil := tt.expectedNil[i]
+
+				t.Logf("Entry %d: Path=%s, Tags=%v, Tags==nil=%v", i, entry.Path, entry.Tags, isNil)
+
+				if isNil != expectedNil {
+					t.Errorf("Entry %d: expected Tags==nil to be %v, got %v (Tags=%v)", 
+						i, expectedNil, isNil, entry.Tags)
 				}
 			}
 		})

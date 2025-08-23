@@ -385,82 +385,94 @@ func TestTag_MatchesTagConditions(t *testing.T) {
 
 func TestTag_ShouldIncludePath(t *testing.T) {
 	tests := []struct {
-		name     string
-		pathTags []string
-		filter   TagFilter
-		expected bool
+		name               string
+		pathTags           []string
+		isExplicitlyTagged bool
+		filter             TagFilter
+		expected           bool
 	}{
 		{
-			name:     "untagged path always included",
-			pathTags: []string{},
-			filter:   TagFilter{Include: [][]string{{"home"}}, Exclude: [][]string{{"gaming"}}},
-			expected: true,
+			name:               "untagged path (not explicit) always included",
+			pathTags:           []string{},
+			isExplicitlyTagged: false,
+			filter:             TagFilter{Include: [][]string{{"home"}}, Exclude: [][]string{{"gaming"}}},
+			expected:           true,
 		},
 		{
-			name:     "nil tags always included",
-			pathTags: nil,
-			filter:   TagFilter{Include: [][]string{{"home"}}, Exclude: [][]string{{"gaming"}}},
-			expected: true,
+			name:               "explicitly empty tags should apply filtering",
+			pathTags:           []string{},
+			isExplicitlyTagged: true,
+			filter:             TagFilter{Include: [][]string{{"home"}}, Exclude: [][]string{{"gaming"}}},
+			expected:           false,
 		},
 		{
-			name:     "no filters - include by default",
-			pathTags: []string{"anything"},
-			filter:   TagFilter{},
-			expected: true,
+			name:               "no filters - include by default",
+			pathTags:           []string{"anything"},
+			isExplicitlyTagged: true,
+			filter:             TagFilter{},
+			expected:           true,
 		},
 		{
-			name:     "include filter matches",
-			pathTags: []string{"home", "dev"},
-			filter:   TagFilter{Include: [][]string{{"home"}}},
-			expected: true,
+			name:               "include filter matches",
+			pathTags:           []string{"home", "dev"},
+			isExplicitlyTagged: true,
+			filter:             TagFilter{Include: [][]string{{"home"}}},
+			expected:           true,
 		},
 		{
-			name:     "include filter no match",
-			pathTags: []string{"gaming"},
-			filter:   TagFilter{Include: [][]string{{"home"}}},
-			expected: false,
+			name:               "include filter no match",
+			pathTags:           []string{"gaming"},
+			isExplicitlyTagged: true,
+			filter:             TagFilter{Include: [][]string{{"home"}}},
+			expected:           false,
 		},
 		{
-			name:     "exclude filter matches - exclude wins",
-			pathTags: []string{"gaming"},
-			filter:   TagFilter{Exclude: [][]string{{"gaming"}}},
-			expected: false,
+			name:               "exclude filter matches - exclude wins",
+			pathTags:           []string{"gaming"},
+			isExplicitlyTagged: true,
+			filter:             TagFilter{Exclude: [][]string{{"gaming"}}},
+			expected:           false,
 		},
 		{
-			name:     "exclude filter no match",
-			pathTags: []string{"home"},
-			filter:   TagFilter{Exclude: [][]string{{"gaming"}}},
-			expected: true,
+			name:               "exclude filter no match",
+			pathTags:           []string{"home"},
+			isExplicitlyTagged: true,
+			filter:             TagFilter{Exclude: [][]string{{"gaming"}}},
+			expected:           true,
 		},
 		{
-			name:     "both filters - include matches, exclude doesn't",
-			pathTags: []string{"home", "dev"},
-			filter:   TagFilter{Include: [][]string{{"home"}}, Exclude: [][]string{{"gaming"}}},
-			expected: true,
+			name:               "both filters - include matches, exclude doesn't",
+			pathTags:           []string{"home", "dev"},
+			isExplicitlyTagged: true,
+			filter:             TagFilter{Include: [][]string{{"home"}}, Exclude: [][]string{{"gaming"}}},
+			expected:           true,
 		},
 		{
-			name:     "both filters - exclude wins",
-			pathTags: []string{"home", "gaming"},
-			filter:   TagFilter{Include: [][]string{{"home"}}, Exclude: [][]string{{"gaming"}}},
-			expected: false,
+			name:               "both filters - exclude wins",
+			pathTags:           []string{"home", "gaming"},
+			isExplicitlyTagged: true,
+			filter:             TagFilter{Include: [][]string{{"home"}}, Exclude: [][]string{{"gaming"}}},
+			expected:           false,
 		},
 		{
-			name:     "complex AND logic in include",
-			pathTags: []string{"work", "server", "prod"},
-			filter:   TagFilter{Include: [][]string{{"work", "server"}}},
-			expected: true,
+			name:               "complex AND logic in include",
+			pathTags:           []string{"work", "server", "prod"},
+			isExplicitlyTagged: true,
+			filter:             TagFilter{Include: [][]string{{"work", "server"}}},
+			expected:           true,
 		},
 		{
-			name:     "complex OR logic in exclude",
-			pathTags: []string{"temp"},
-			filter:   TagFilter{Include: [][]string{{"home"}}, Exclude: [][]string{{"gaming"}, {"temp"}}},
-			expected: false,
+			name:               "complex OR logic in exclude",
+			pathTags:           []string{"temp"},
+			isExplicitlyTagged: true,
+			filter:             TagFilter{Include: [][]string{{"home"}}, Exclude: [][]string{{"gaming"}, {"temp"}}},
+			expected:           false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := shouldIncludePath(tt.pathTags, tt.filter)
+			result := shouldIncludePath(tt.pathTags, tt.isExplicitlyTagged, tt.filter)
 			if result != tt.expected {
 				t.Errorf("Expected %v, got %v for tags %v with filter %+v", 
 					tt.expected, result, tt.pathTags, tt.filter)
