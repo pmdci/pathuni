@@ -1,0 +1,9 @@
+all:
+  paths:
+    - "/tmp/pathuni/usr/local/bin"     # No tags
+
+macos:
+  paths:
+    - "/tmp/pathuni/opt/homebrew/bin"  # No tags
+    - path: "/tmp/pathuni/opt/dev/bin"
+      tags: [dev]                      # [dev]

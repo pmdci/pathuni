@@ -15,7 +15,7 @@ var Version = "dev"
 var (
 	shell        string
 	config       string
-	platformOnly bool
+	osOverride   string
 	dumpFormat   string
 	dumpInclude  string
 	tagsInclude  string
@@ -30,15 +30,44 @@ func getConfigPath() string {
 	return filepath.Join(home, ".config", "pathuni", "my_paths.yaml")
 }
 
-func getOSName() string {
-	switch runtime.GOOS {
-	case "darwin":
-		return "macOS"
-	case "linux":
-		return "Linux"
-	default:
-		return ""
+func getOSName() (string, bool) {
+	osName := strings.ToLower(osOverride)
+	inferred := false
+	
+	if osName == "" {
+		switch runtime.GOOS {
+		case "darwin":
+			osName = "macos"
+		case "linux":
+			osName = "linux"
+		default:
+			osName = ""
+		}
+		inferred = true
 	}
+	
+	// Normalise OS name
+	switch osName {
+	case "darwin", "macos":
+		return "macOS", inferred
+	case "linux":
+		return "Linux", inferred
+	default:
+		return "", inferred
+	}
+}
+
+func osIsValid(osName string) bool {
+	switch osName {
+	case "macOS", "Linux":
+		return true
+	default:
+		return false
+	}
+}
+
+func osNames() []string {
+	return []string{"macOS", "Linux"}
 }
 
 func normalizeShellName(shell string) string {
@@ -109,10 +138,10 @@ Validates that directories exist before including them.`,
 
 func init() {
 	// Add persistent flags (available to all commands)
-	rootCmd.PersistentFlags().StringVarP(&shell, "shell", "s", "", "Shell type: sh|ash|bash|dash|ksh|mksh|yash|zsh|fish|powershell (auto-detected if not specified)")
+	rootCmd.PersistentFlags().StringVarP(&shell, "shell", "S", "", "Shell type: sh|ash|bash|dash|ksh|mksh|yash|zsh|fish|powershell (detected if not specified)")
 	// If building for Windows in the future, will need to be something like %USERPROFILE%\AppData\Local\pathuni\my_paths.yaml
 	rootCmd.PersistentFlags().StringVarP(&config, "config", "c", "", "Path to config file (default: ~/.config/pathuni/my_paths.yaml)")
-	rootCmd.PersistentFlags().BoolVarP(&platformOnly, "platform-only", "p", false, "Include only platform-specific paths, skip 'All' section")
+	rootCmd.PersistentFlags().StringVarP(&osOverride, "os", "O", "", "OS type: macOS|linux (detected if not specified)")
 	rootCmd.PersistentFlags().StringVarP(&tagsInclude, "tags-include", "t", "", "Include paths with tags (comma=OR, plus=AND): home,dev or work+server")
 	rootCmd.PersistentFlags().StringVarP(&tagsExclude, "tags-exclude", "x", "", "Exclude paths with tags (comma=OR, plus=AND): gaming,temp or work+gaming")
 

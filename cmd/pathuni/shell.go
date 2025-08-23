@@ -54,8 +54,13 @@ func renderPwsh(paths []string) string {
 
 func runInit() {
 	configPath := getConfigPath()
-	osName := getOSName()
+	osName, _ := getOSName()
 	shellName, _ := getShellName()
+
+	if !osIsValid(osName) {
+		fmt.Fprintf(os.Stderr, "Unsupported OS '%s'. Supported OS: %s\n", osName, strings.Join(osNames(), ", "))
+		os.Exit(1)
+	}
 
 	if !shellIsValid(shellName) {
 		fmt.Fprintf(os.Stderr, "Unsupported shell '%s'. Supported shells: %s\n", shellName, strings.Join(shellNames(), ", "))
@@ -69,7 +74,7 @@ func runInit() {
 		os.Exit(1)
 	}
 
-	paths, _, err := collectValidPaths(configPath, osName, shellName, platformOnly, tagFilter)
+	paths, _, err := collectValidPaths(configPath, osName, shellName, tagFilter)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error reading config file: %v\n", err)
 		os.Exit(1)

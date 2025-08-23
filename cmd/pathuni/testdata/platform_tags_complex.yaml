@@ -1,0 +1,13 @@
+all:
+  tags: [system]
+  paths:
+    - "/tmp/pathuni/usr/local/bin"     # [system]
+
+macos:
+  tags: [mac, gui]
+  paths:
+    - "/tmp/pathuni/opt/homebrew/bin"  # [mac, gui]
+    - path: "/tmp/pathuni/opt/work/bin"
+      tags: [work, server]             # [work, server]
+    - path: "/tmp/pathuni/Applications/Docker.app/Contents/Resources/bin"
+      tags: [mac, gui, docker]         # [mac, gui, docker]

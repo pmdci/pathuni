@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"gopkg.in/yaml.v3"
 )
 
 func TestConfig_YAMLParsing(t *testing.T) {
@@ -50,7 +52,7 @@ func TestConfig_YAMLParsing(t *testing.T) {
 			configPath := filepath.Join("testdata", tt.configFile)
 			
 			// Use EvaluateConfig to get detailed results
-			validPaths, skippedPaths, _, err := EvaluateConfig(configPath, tt.platform, "bash", false, TagFilter{})
+			validPaths, skippedPaths, _, err := EvaluateConfig(configPath, tt.platform, "bash", TagFilter{})
 			
 			if tt.expectError {
 				if err == nil {
@@ -82,38 +84,23 @@ func TestConfig_PlatformFiltering(t *testing.T) {
 	tests := []struct {
 		name         string
 		platform     string
-		platformOnly bool
 		expectPaths  []string // Paths we expect to be processed (may be valid or skipped)
 	}{
 		{
 			name:         "macOS with all section",
 			platform:     "macOS",
-			platformOnly: false,
 			expectPaths:  []string{"/tmp/pathuni/usr/local/bin", "/tmp/pathuni/usr/bin", "/tmp/pathuni/opt/homebrew/bin", "/tmp/pathuni/System/Library/Frameworks", "/tmp/pathuni/Applications/Xcode.app/Contents/Developer/usr/bin"},
-		},
-		{
-			name:         "macOS platform only",
-			platform:     "macOS",
-			platformOnly: true,
-			expectPaths:  []string{"/tmp/pathuni/opt/homebrew/bin", "/tmp/pathuni/System/Library/Frameworks", "/tmp/pathuni/Applications/Xcode.app/Contents/Developer/usr/bin"},
 		},
 		{
 			name:         "Linux with all section",
 			platform:     "Linux",
-			platformOnly: false,
 			expectPaths:  []string{"/tmp/pathuni/usr/local/bin", "/tmp/pathuni/usr/bin", "/tmp/pathuni/snap/bin", "/tmp/pathuni/usr/games", "/tmp/pathuni/home/linuxbrew/.linuxbrew/bin"},
-		},
-		{
-			name:         "Linux platform only",
-			platform:     "Linux",
-			platformOnly: true,
-			expectPaths:  []string{"/tmp/pathuni/snap/bin", "/tmp/pathuni/usr/games", "/tmp/pathuni/home/linuxbrew/.linuxbrew/bin"},
 		},
 	}
 	
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			validPaths, skippedPaths, _, err := EvaluateConfig(configPath, tt.platform, "bash", tt.platformOnly, TagFilter{})
+			validPaths, skippedPaths, _, err := EvaluateConfig(configPath, tt.platform, "bash", TagFilter{})
 			if err != nil {
 				t.Fatalf("Unexpected error: %v", err)
 			}
@@ -171,7 +158,7 @@ func TestConfig_EnvironmentExpansion(t *testing.T) {
 		}
 	}()
 	
-	validPaths, skippedPaths, _, err := EvaluateConfig(configPath, "macOS", "bash", false, TagFilter{})
+	validPaths, skippedPaths, _, err := EvaluateConfig(configPath, "macOS", "bash", TagFilter{})
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
@@ -212,7 +199,7 @@ func TestConfig_PathValidation(t *testing.T) {
 	
 	configPath := filepath.Join("testdata", "missing_paths.yaml")
 	
-	validPaths, skippedPaths, _, err := EvaluateConfig(configPath, "macOS", "bash", false, TagFilter{})
+	validPaths, skippedPaths, _, err := EvaluateConfig(configPath, "macOS", "bash", TagFilter{})
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
@@ -252,17 +239,15 @@ func TestConfig_CollectValidPaths(t *testing.T) {
 		name         string
 		platform     string
 		shell        string
-		platformOnly bool
 	}{
-		{"macOS bash", "macOS", "bash", false},
-		{"macOS powershell", "macOS", "powershell", false},
-		{"macOS platform only", "macOS", "bash", true},
-		{"Linux bash", "Linux", "bash", false},
+		{"macOS bash", "macOS", "bash"},
+		{"macOS powershell", "macOS", "powershell"},
+		{"Linux bash", "Linux", "bash"},
 	}
 	
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			paths, systemCount, err := collectValidPaths(configPath, tt.platform, tt.shell, tt.platformOnly, TagFilter{})
+			paths, systemCount, err := collectValidPaths(configPath, tt.platform, tt.shell, TagFilter{})
 			if err != nil {
 				t.Fatalf("Unexpected error: %v", err)
 			}
@@ -318,7 +303,7 @@ func TestConfig_ErrorHandling(t *testing.T) {
 	
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, _, err := collectValidPaths(tt.configPath, tt.platform, tt.shell, false, TagFilter{})
+			_, _, err := collectValidPaths(tt.configPath, tt.platform, tt.shell, TagFilter{})
 			
 			if tt.wantError && err == nil {
 				t.Error("Expected error but got none")
@@ -337,7 +322,7 @@ func TestConfig_EdgeCases(t *testing.T) {
 	// Test with empty platform (unsupported OS)
 	t.Run("empty platform", func(t *testing.T) {
 		configPath := filepath.Join("testdata", "valid_config.yaml")
-		paths, _, err := collectValidPaths(configPath, "", "bash", false, TagFilter{})
+		paths, _, err := collectValidPaths(configPath, "", "bash", TagFilter{})
 		if err != nil {
 			t.Fatalf("Unexpected error: %v", err)
 		}
@@ -345,29 +330,6 @@ func TestConfig_EdgeCases(t *testing.T) {
 		// Should only get paths from "all" section since platform is empty
 		if len(paths) == 0 {
 			t.Error("Expected some paths from 'all' section")
-		}
-	})
-	
-	// Test with platform-only flag
-	t.Run("platform only excludes all section", func(t *testing.T) {
-		configPath := filepath.Join("testdata", "platform_specific.yaml")
-		
-		// Get paths with all sections
-		pathsWithAll, _, err1 := collectValidPaths(configPath, "macOS", "bash", false, TagFilter{})
-		if err1 != nil {
-			t.Fatalf("Unexpected error with all sections: %v", err1)
-		}
-		
-		// Get paths with platform only
-		pathsPlatformOnly, _, err2 := collectValidPaths(configPath, "macOS", "bash", true, TagFilter{})
-		if err2 != nil {
-			t.Fatalf("Unexpected error with platform only: %v", err2)
-		}
-		
-		// Platform-only should have fewer paths (excludes "all" section)
-		if len(pathsPlatformOnly) >= len(pathsWithAll) {
-			t.Errorf("Platform-only should have fewer paths. With all: %d, platform-only: %d", 
-				len(pathsWithAll), len(pathsPlatformOnly))
 		}
 	})
 }
@@ -416,7 +378,7 @@ func TestConfig_MixedYAMLFormat(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			validPaths, skippedPaths, _, err := EvaluateConfig(testConfigPath, "macOS", "bash", false, tt.tagFilter)
+			validPaths, skippedPaths, _, err := EvaluateConfig(testConfigPath, "macOS", "bash", tt.tagFilter)
 			if err != nil {
 				t.Fatalf("Unexpected error: %v", err)
 			}
@@ -519,6 +481,37 @@ func TestConfig_TagValidationErrors(t *testing.T) {
         - dev`,
 			expectError: false,
 		},
+		{
+			name: "invalid platform-level tag format",
+			configContent: `all:
+  tags: [base, "2invalid"]
+  paths:
+    - "/test/path"`,
+			expectError:   true,
+			errorContains: "invalid tag '2invalid'",
+		},
+		{
+			name: "duplicate platform-level tags",
+			configContent: `macos:
+  tags: [mac, desktop, mac]
+  paths:
+    - "/test/path"`,
+			expectError:   true,
+			errorContains: "duplicate tag 'mac'",
+		},
+		{
+			name: "valid platform-level tags",
+			configContent: `all:
+  tags: [base, essential]
+  paths:
+    - "/test/path"
+macos:
+  tags: [mac, desktop]
+  paths:
+    - path: "/another/path"
+      tags: [dev]`,
+			expectError: false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -534,7 +527,7 @@ func TestConfig_TagValidationErrors(t *testing.T) {
 			}
 			tmpFile.Close()
 
-			_, _, _, err = EvaluateConfig(tmpFile.Name(), "macOS", "bash", false, TagFilter{})
+			_, _, _, err = EvaluateConfig(tmpFile.Name(), "macOS", "bash", TagFilter{})
 
 			if tt.expectError {
 				if err == nil {
@@ -545,6 +538,109 @@ func TestConfig_TagValidationErrors(t *testing.T) {
 			} else {
 				if err != nil {
 					t.Errorf("Unexpected error for %s: %v", tt.name, err)
+				}
+			}
+		})
+	}
+}
+// TestPathEntry_GetEffectiveTags tests platform-level tag inheritance logic
+func TestPathEntry_GetEffectiveTags(t *testing.T) {
+	platformTags := []string{"mac", "desktop"}
+	
+	tests := []struct {
+		name     string
+		entry    PathEntry
+		expected []string
+	}{
+		{
+			name:     "explicit tags override platform tags",
+			entry:    PathEntry{Path: "/test", Tags: []string{"dev", "work"}},
+			expected: []string{"dev", "work"},
+		},
+		{
+			name:     "explicit empty tags override platform tags",
+			entry:    PathEntry{Path: "/test", Tags: []string{}},
+			expected: []string{},
+		},
+		{
+			name:     "no tags field inherits platform tags",
+			entry:    PathEntry{Path: "/test"}, // Tags field is nil
+			expected: []string{"mac", "desktop"},
+		},
+		{
+			name:     "inherit from empty platform tags",
+			entry:    PathEntry{Path: "/test"},
+			expected: []string{},
+		},
+	}
+	
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var platformTagsToUse []string
+			if tt.name == "inherit from empty platform tags" {
+				platformTagsToUse = []string{}
+			} else {
+				platformTagsToUse = platformTags
+			}
+			
+			result := tt.entry.GetEffectiveTags(platformTagsToUse)
+			
+			if len(result) != len(tt.expected) {
+				t.Errorf("Expected %d tags, got %d: %v vs %v", len(tt.expected), len(result), tt.expected, result)
+				return
+			}
+			
+			for i, expected := range tt.expected {
+				if result[i] != expected {
+					t.Errorf("Expected tag[%d] = %s, got %s", i, expected, result[i])
+				}
+			}
+		})
+	}
+}
+
+// TestExtractPathEntries_EmptyTags tests that empty tags are parsed correctly  
+func TestExtractPathEntries_EmptyTags(t *testing.T) {
+	tests := []struct {
+		name        string
+		pathsYAML   string
+		expectedNil []bool // true if Tags should be nil, false if should be empty slice
+	}{
+		{
+			name: "empty tags vs no tags field",
+			pathsYAML: `- path: "/test1"
+  tags: []
+- path: "/test2"`,
+			expectedNil: []bool{false, true}, // first has empty slice, second has nil
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var pathsInterface []interface{}
+			err := yaml.Unmarshal([]byte(tt.pathsYAML), &pathsInterface)
+			if err != nil {
+				t.Fatalf("Failed to unmarshal YAML: %v", err)
+			}
+
+			entries, err := extractPathEntries(pathsInterface, "test context")
+			if err != nil {
+				t.Fatalf("extractPathEntries failed: %v", err)
+			}
+
+			if len(entries) != len(tt.expectedNil) {
+				t.Fatalf("Expected %d entries, got %d", len(tt.expectedNil), len(entries))
+			}
+
+			for i, entry := range entries {
+				isNil := entry.Tags == nil
+				expectedNil := tt.expectedNil[i]
+
+				t.Logf("Entry %d: Path=%s, Tags=%v, Tags==nil=%v", i, entry.Path, entry.Tags, isNil)
+
+				if isNil != expectedNil {
+					t.Errorf("Entry %d: expected Tags==nil to be %v, got %v (Tags=%v)", 
+						i, expectedNil, isNil, entry.Tags)
 				}
 			}
 		})

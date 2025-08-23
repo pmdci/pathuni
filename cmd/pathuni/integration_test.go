@@ -113,7 +113,7 @@ func TestIntegration_TagFiltering(t *testing.T) {
 			}
 
 			// Test the actual path collection
-			validPaths, skippedPaths, _, err := EvaluateConfig(testConfigPath, "macOS", "bash", false, tagFilter)
+			validPaths, skippedPaths, _, err := EvaluateConfig(testConfigPath, "macOS", "bash", tagFilter)
 			if err != nil {
 				t.Errorf("Unexpected error evaluating config for %s: %v", tt.name, err)
 				return

@@ -60,7 +60,7 @@ func getCurrentPath() ([]string, error) {
 
 func getPathUniPaths() ([]string, error) {
 	configPath := getConfigPath()
-	osName := getOSName()
+	osName, _ := getOSName()
 	shellName, _ := getShellName()
 	
 	// Parse tag filters
@@ -69,7 +69,7 @@ func getPathUniPaths() ([]string, error) {
 		return nil, err
 	}
 	
-	paths, _, err := collectValidPaths(configPath, osName, shellName, platformOnly, tagFilter)
+	paths, _, err := collectValidPaths(configPath, osName, shellName, tagFilter)
 	return paths, err
 }
 

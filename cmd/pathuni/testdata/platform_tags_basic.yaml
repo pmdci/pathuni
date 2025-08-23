@@ -1,0 +1,14 @@
+all:
+  tags: [base, essential]
+  paths:
+    - "/tmp/pathuni/usr/local/bin"     # Inherits: [base, essential]
+    - "/tmp/pathuni/usr/bin"           # Inherits: [base, essential]
+
+macos:
+  tags: [mac, desktop]
+  paths:
+    - "/tmp/pathuni/opt/homebrew/bin"  # Inherits: [mac, desktop]
+    - path: "/tmp/pathuni/opt/dev/bin"
+      tags: [dev, work]               # Override: [dev, work]
+    - path: "/tmp/pathuni/opt/server/bin"
+      tags: []                        # Override: no tags
