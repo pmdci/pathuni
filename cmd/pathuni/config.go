@@ -105,7 +105,7 @@ func validateConfig(cfg *Config) error {
 // SkipReason represents why a path was skipped in dry-run output
 type SkipReason struct {
 	Type   string // "tags", "hostname", "not_found"
-	Detail string // "gaming = gaming", "work != dev+work,audio"
+	Detail string // "gaming = gaming", "mac,gaming (+1) != essential"
 }
 
 // SkippedPath represents a path that was skipped with reasons

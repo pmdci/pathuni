@@ -247,12 +247,36 @@ func getIncludeFailureReason(pathTags []string, includeConditions [][]string) st
 	// Format the include conditions as a readable string
 	conditionStr := formatTagConditions(includeConditions)
 	
-	// Find the best representative tag from the path to show in the comparison
+	// Format the path tags for display
 	if len(pathTags) > 0 {
-		return fmt.Sprintf("%s != %s", pathTags[0], conditionStr)
+		tagDisplay := formatTagsForDisplay(pathTags)
+		return fmt.Sprintf("%s != %s", tagDisplay, conditionStr)
 	}
 	
 	return fmt.Sprintf("no tags != %s", conditionStr)
+}
+
+// formatTagsForDisplay formats path tags for display in failure messages
+// Shows up to 2 tags, with count indicator for additional tags:
+// - 1 tag: "mac"
+// - 2 tags: "mac,gaming"  
+// - 3+ tags: "mac,gaming (+N)" where N is count of remaining tags
+func formatTagsForDisplay(tags []string) string {
+	if len(tags) == 0 {
+		return ""
+	}
+	
+	if len(tags) == 1 {
+		return tags[0]
+	}
+	
+	if len(tags) == 2 {
+		return fmt.Sprintf("%s,%s", tags[0], tags[1])
+	}
+	
+	// 3+ tags: show first two plus count
+	remaining := len(tags) - 2
+	return fmt.Sprintf("%s,%s (+%d)", tags[0], tags[1], remaining)
 }
 
 // formatTagConditions converts tag conditions to readable string like "dev+work,audio"

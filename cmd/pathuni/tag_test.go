@@ -505,3 +505,105 @@ func equalStringSlices2D(a, b [][]string) bool {
 	return true
 }
 
+func TestTag_FormatTagsForDisplay(t *testing.T) {
+	tests := []struct {
+		name     string
+		tags     []string
+		expected string
+	}{
+		// Single tag cases
+		{"single tag", []string{"mac"}, "mac"},
+		{"single tag uppercase", []string{"GAMING"}, "GAMING"},
+		
+		// Two tag cases
+		{"two tags", []string{"mac", "gaming"}, "mac,gaming"},
+		{"two tags mixed case", []string{"Work", "HOME"}, "Work,HOME"},
+		
+		// Three or more tag cases
+		{"three tags", []string{"mac", "gaming", "video"}, "mac,gaming (+1)"},
+		{"four tags", []string{"work", "dev", "server", "prod"}, "work,dev (+2)"},
+		{"five tags", []string{"home", "personal", "media", "games", "temp"}, "home,personal (+3)"},
+		
+		// Edge cases
+		{"no tags", []string{}, ""},
+		{"empty tag in list", []string{"mac", "", "gaming"}, "mac, (+1)"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := formatTagsForDisplay(tt.tags)
+			if result != tt.expected {
+				t.Errorf("Expected '%s', got '%s' for tags %v", tt.expected, result, tt.tags)
+			}
+		})
+	}
+}
+
+func TestTag_GetIncludeFailureReasonImproved(t *testing.T) {
+	tests := []struct {
+		name               string
+		pathTags           []string
+		includeConditions  [][]string
+		expectedReason     string
+	}{
+		// Single tag cases
+		{
+			name:              "single tag fails include",
+			pathTags:          []string{"mac"},
+			includeConditions: [][]string{{"essential"}},
+			expectedReason:    "mac != essential",
+		},
+		// Two tag cases
+		{
+			name:              "two tags fail include",
+			pathTags:          []string{"mac", "gaming"},
+			includeConditions: [][]string{{"essential"}},
+			expectedReason:    "mac,gaming != essential",
+		},
+		// Three or more tag cases
+		{
+			name:              "three tags fail include",
+			pathTags:          []string{"mac", "gaming", "video"},
+			includeConditions: [][]string{{"essential"}},
+			expectedReason:    "mac,gaming (+1) != essential",
+		},
+		{
+			name:              "five tags fail include",
+			pathTags:          []string{"work", "dev", "server", "prod", "temp"},
+			includeConditions: [][]string{{"essential"}},
+			expectedReason:    "work,dev (+3) != essential",
+		},
+		// Complex include conditions
+		{
+			name:              "multiple include conditions",
+			pathTags:          []string{"mac", "gaming", "video"},
+			includeConditions: [][]string{{"essential"}, {"work", "dev"}},
+			expectedReason:    "mac,gaming (+1) != essential,work+dev",
+		},
+		// Matching cases (should return empty)
+		{
+			name:              "tags match include condition",
+			pathTags:          []string{"essential", "gaming"},
+			includeConditions: [][]string{{"essential"}},
+			expectedReason:    "",
+		},
+		// No tags case
+		{
+			name:              "no tags fail include",
+			pathTags:          []string{},
+			includeConditions: [][]string{{"essential"}},
+			expectedReason:    "no tags != essential",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := getIncludeFailureReason(tt.pathTags, tt.includeConditions)
+			if result != tt.expectedReason {
+				t.Errorf("Expected '%s', got '%s' for tags %v with conditions %v", 
+					tt.expectedReason, result, tt.pathTags, tt.includeConditions)
+			}
+		})
+	}
+}
+

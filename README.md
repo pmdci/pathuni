@@ -253,7 +253,7 @@ Shell : zsh (detected)
 
 4 Skipped Paths:
   [-] /Users/you/.cargo/bin
-       └rust != essential
+       └rust,dev != essential
   [-] /opt/homebrew/bin
        └mac != essential
   [-] /opt/homebrew/sbin
