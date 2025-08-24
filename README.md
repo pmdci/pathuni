@@ -184,6 +184,9 @@ pathuni init
 # Specify shell explicitly
 pathuni init --shell=fish
 pathuni --shell=powershell  # shortcut: global flags work on root command
+
+# Specify OS explicitly (NEW in v0.4.6)
+pathuni init --os=linux
 ```
 
 ### Preview what will be included
@@ -216,10 +219,10 @@ pathuni d -f json -i all  # using shortcuts and short flags
 
 ```bash
 # All paths included (no filtering)
-$ pathuni dry-run
+$ pathuni dry-run --os=macos
 Evaluating: /Users/you/.config/pathuni/my_paths.yaml
 
-OS    : macOS
+OS    : macOS (specified)
 Shell : zsh (detected)
 
 5 Included Paths:
@@ -242,7 +245,7 @@ Output would be:
 $ pathuni dry-run --tags-include=essential
 Evaluating: /Users/you/.config/pathuni/my_paths.yaml
 
-OS    : macOS
+OS    : macOS (detected)
 Shell : zsh (detected)
 
 1 Included Path:
@@ -268,7 +271,7 @@ Output would be:
 $ pathuni dry-run --tags-exclude=gui --shell=zsh
 Evaluating: /Users/you/.config/pathuni/my_paths.yaml
 
-OS    : macOS
+OS    : macOS (detected)
 Shell : zsh (specified)
 
 3 Included Paths:
@@ -278,7 +281,7 @@ Shell : zsh (specified)
 
 2 Skipped Paths:
   [-] /opt/homebrew/bin
-       └mac = gui (inherited platform tag)
+       └mac = gui
   [!] /Applications/Docker.app/Contents/Resources/bin (not found)
 
 3 paths included in total
