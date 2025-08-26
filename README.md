@@ -169,10 +169,55 @@ pathuni --tags-include=dev --tags-exclude=work
 
 **Tag naming rules:**
 
-- 3-20 characters
-- Start with a letter
-- Only letters, numbers, and underscores
-- Examples: `dev`, `work_laptop`, `gaming2`, `MyProject`
+- **Exact tags**: 3-20 characters, start with a letter, only letters/numbers/underscores
+  - Examples: `dev`, `work_laptop`, `gaming2`, `MyProject`
+- **Wildcard patterns**: Support glob-style patterns using `*`, `?`, `[...]` syntax
+  - Examples: `work_*`, `server?`, `[abc]*`, `*_temp`
+
+### Wildcard Tag Patterns (NEW in v0.5.0)
+
+You can use glob-style wildcard patterns for flexible tag matching, perfect for hierarchical tag structures:
+
+```bash
+# Wildcard patterns using *
+pathuni --tags-include="work_*"     # Matches: work_prod, work_dev, work_staging
+pathuni --tags-exclude="*_temp"    # Matches: build_temp, cache_temp, any_temp
+
+# Single character wildcards using ?  
+pathuni --tags-include="dev?"       # Matches: dev1, dev2, devA (exactly 4 chars)
+pathuni --tags-exclude="?unt"       # Matches: hunt, punt, bunt (exactly 4 chars)
+
+# Character classes using [...]
+pathuni --tags-include="server[123]"    # Matches: server1, server2, server3
+pathuni --tags-exclude="[abc]*"         # Matches: app, audio, build, cache...
+pathuni --tags-include="[a-z]*"         # Matches: any tag starting with a-z
+pathuni --tags-exclude="[^test]*"       # Matches: any tag NOT starting with t,e,s
+
+# Complex combinations
+pathuni --tags-include="work_*,server*" --tags-exclude="*_temp"
+# Include work_* OR server* patterns, but exclude anything ending in _temp
+
+# Case-insensitive matching  
+pathuni --tags-exclude="MA?OS"     # Matches: macos, MACOS, MacOS, etc.
+```
+
+**Supported wildcard syntax:**
+
+- `*` - matches any sequence of characters (zero or more)
+- `?` - matches exactly one character
+- `[abc]` - matches any character in the set (a, b, or c)
+- `[a-z]` - matches any character in the range (a through z)
+- `[^abc]` - matches any character NOT in the set (anything except a, b, c)
+
+**Pattern examples:**
+
+- `work_*` → `work_prod`, `work_dev`, `work_staging`
+- `dev?` → `dev1`, `dev2`, `devA` (but not `development`)
+- `server[12]` → `server1`, `server2` (but not `server3`)
+- `*_temp` → `build_temp`, `work_temp`, `cache_temp`
+- `[a-c]*` → `app`, `build`, `cache` (any tag starting with a, b, or c)
+
+**Note**: All wildcard matching is case-insensitive, so `Work_*` matches `work_prod`, `WORK_DEV`, etc.
 
 ### Generate PATH export
 
@@ -206,13 +251,15 @@ pathuni dry-run --shell=bash
 pathuni dump
 pathuni d  # shortcut
 
-# Show only what pathuni would add
-pathuni dump --include=pathuni
+# Dump output scope options
+pathuni dump --scope=pathuni # Show only what pathuni would add
+pathuni dump --scope=system  # Show only existing, path without pathuni additions
+pathuni dump --scope=full    # Show existing path, plus pathuni additions (default)
 
 # Different output formats
 pathuni dump --format=json
-pathuni dump --format=yaml --include=pathuni
-pathuni d -f json -i all  # using shortcuts and short flags
+pathuni dump --format=yaml --scope=pathuni
+pathuni d -f json -s full  # using shortcuts and short flags
 ```
 
 **Example dry-run outputs (NEW improved tree structure in v0.4.5):**
@@ -294,18 +341,18 @@ Output would be:
 **Example dump outputs:**
 
 ```bash
-$ pathuni dump --include=pathuni
+$ pathuni dump --scope=pathuni
 /Users/you/.local/bin
 /opt/homebrew/bin
 /opt/homebrew/sbin
 
-$ pathuni dump --format=yaml --include=pathuni
+$ pathuni dump --format=yaml --scope=pathuni
 PATH:
     - /Users/you/.local/bin
     - /opt/homebrew/bin
     - /opt/homebrew/sbin
 
-$ pathuni dump --format=json --include=all
+$ pathuni dump --format=json --scope=full
 {"PATH":["/Users/you/.local/bin","/opt/homebrew/bin",...]}
 ```
 
@@ -326,6 +373,7 @@ Most dotfiles managers are heavyweight solutions for simple PATH management. Pat
 - **Multi-shell**: bash, zsh, fish, PowerShell support
 - **Platform-level tag inheritance**: Define tags once per platform, inherit automatically
 - **Tag-based filtering**: Include/exclude paths by context (dev, work, gaming, etc.)
+- **Wildcard tag patterns**: Use glob-style patterns (`work_*`, `server?`, `[abc]*`) for flexible filtering
 - **Improved dry-run output**: Tree-structured output with detailed skip reasons
 - **Path validation**: Only includes directories that actually exist
 - **Lightweight**: Single binary, no dependencies

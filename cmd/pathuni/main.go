@@ -17,7 +17,7 @@ var (
 	config       string
 	osOverride   string
 	dumpFormat   string
-	dumpInclude  string
+	dumpScope    string
 	tagsInclude  string
 	tagsExclude  string
 )
@@ -153,7 +153,7 @@ func init() {
 
 	// Add flags specific to dump command
 	dumpCmd.Flags().StringVarP(&dumpFormat, "format", "f", "plain", "Output format: plain|json|yaml")
-	dumpCmd.Flags().StringVarP(&dumpInclude, "include", "i", "all", "Paths to include: all|pathuni")
+	dumpCmd.Flags().StringVarP(&dumpScope, "scope", "s", "full", "Paths to include: system|pathuni|full")
 
 	// Custom version template
 	rootCmd.SetVersionTemplate(`pathuni ` + Version + `

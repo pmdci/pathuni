@@ -14,18 +14,21 @@ func runDump() {
 		fmt.Fprintf(os.Stderr, "Error: Unsupported format '%s'. Supported formats: plain, json, yaml\n", dumpFormat)
 		os.Exit(1)
 	}
-	if !isValidInclude(dumpInclude) {
-		fmt.Fprintf(os.Stderr, "Error: Invalid include option '%s'. Use 'all' or 'pathuni'\n", dumpInclude)
+	if !isValidScope(dumpScope) {
+		fmt.Fprintf(os.Stderr, "Error: Invalid scope option '%s'. Use 'system', 'pathuni', or 'full'\n", dumpScope)
 		os.Exit(1)
 	}
 
 	var paths []string
 	var err error
 
-	if dumpInclude == "all" {
+	switch dumpScope {
+	case "system":
 		paths, err = getCurrentPath()
-	} else {
+	case "pathuni":
 		paths, err = getPathUniPaths()
+	case "full":
+		paths, err = getAllPathsWithTagFiltering()
 	}
 
 	if err != nil {
@@ -46,8 +49,8 @@ func isValidFormat(format string) bool {
 	return format == "plain" || format == "json" || format == "yaml"
 }
 
-func isValidInclude(include string) bool {
-	return include == "all" || include == "pathuni"
+func isValidScope(scope string) bool {
+	return scope == "system" || scope == "pathuni" || scope == "full"
 }
 
 func getCurrentPath() ([]string, error) {
@@ -56,6 +59,42 @@ func getCurrentPath() ([]string, error) {
 		return []string{}, nil
 	}
 	return strings.Split(pathEnv, ":"), nil
+}
+
+func getAllPathsWithTagFiltering() ([]string, error) {
+	// Get current system PATH (no filtering - these paths have no tags)
+	systemPaths, err := getCurrentPath()
+	if err != nil {
+		return nil, err
+	}
+	
+	// Get PathUni paths with tag filtering applied
+	pathuniPaths, err := getPathUniPaths()
+	if err != nil {
+		return nil, err
+	}
+	
+	// Create a map to avoid duplicates while preserving order
+	seen := make(map[string]bool)
+	var result []string
+	
+	// Add system paths first
+	for _, path := range systemPaths {
+		if !seen[path] {
+			result = append(result, path)
+			seen[path] = true
+		}
+	}
+	
+	// Add PathUni paths (filtered), avoiding duplicates
+	for _, path := range pathuniPaths {
+		if !seen[path] {
+			result = append(result, path)
+			seen[path] = true
+		}
+	}
+	
+	return result, nil
 }
 
 func getPathUniPaths() ([]string, error) {

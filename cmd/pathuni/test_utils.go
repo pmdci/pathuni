@@ -42,6 +42,21 @@ func setupTestFilesystem(t *testing.T) {
 		"/tmp/pathuni/opt/dev/bin",
 		"/tmp/pathuni/opt/server/bin",
 		"/tmp/pathuni/opt/work/bin",
+		"/tmp/pathuni/home/user/.cargo/bin",
+		"/tmp/pathuni/opt/server1/bin",
+		"/tmp/pathuni/opt/server2/bin",
+		"/tmp/pathuni/opt/serverless/bin",
+		"/tmp/pathuni/opt/tools",
+		"/tmp/pathuni/home/grunt",
+		"/tmp/pathuni/usr/all/bin",
+		"/tmp/pathuni/opt/app",
+		"/tmp/pathuni/home/aol",
+		"/tmp/pathuni/opt/gaming",
+		"/tmp/pathuni/usr/work",
+		"/tmp/pathuni/home/server",
+		"/tmp/pathuni/tmp/build",
+		"/tmp/pathuni/var/work",
+		"/tmp/pathuni/opt/cache",
 	}
 	
 	for _, dir := range testDirs {

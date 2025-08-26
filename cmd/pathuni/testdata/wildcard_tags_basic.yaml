@@ -1,0 +1,56 @@
+# Test config for wildcard pattern testing - basic scenarios
+# This config tests core wildcard functionality with realistic tag patterns
+
+all:
+  paths:
+    - "/tmp/pathuni/usr/local/bin"  # no tags - always included
+
+macos:
+  paths:
+    # Work-related tags for testing work_* pattern
+    - path: "/tmp/pathuni/usr/local/go/bin"
+      tags: [work_prod, dev]
+    - path: "/tmp/pathuni/home/user/.cargo/bin" 
+      tags: [work_dev, rust]
+    - path: "/tmp/pathuni/opt/work/bin"
+      tags: [work_staging, deploy]
+    
+    # Server tags for testing server* pattern  
+    - path: "/tmp/pathuni/opt/server1/bin"
+      tags: [server1, production]
+    - path: "/tmp/pathuni/opt/server2/bin"
+      tags: [server2, staging]
+    - path: "/tmp/pathuni/opt/serverless/bin"
+      tags: [serverless, cloud]
+    
+    # Single character variations for testing ?unt pattern
+    - path: "/tmp/pathuni/usr/games"
+      tags: [hunt, gaming]
+    - path: "/tmp/pathuni/opt/tools"
+      tags: [punt, sports]
+    - path: "/tmp/pathuni/home/grunt"
+      tags: [grunt, build]
+    
+    # All variations for testing a?l pattern (critical case sensitivity test)
+    - path: "/tmp/pathuni/usr/all/bin"
+      tags: [all, general]
+    - path: "/tmp/pathuni/opt/app"
+      tags: [app, mobile]
+    - path: "/tmp/pathuni/home/aol"
+      tags: [aol, legacy]
+    
+    # Mixed case testing
+    - path: "/tmp/pathuni/opt/gaming"
+      tags: [GAMING, entertainment]
+    - path: "/tmp/pathuni/usr/work"
+      tags: [Work_Prod, office]
+    - path: "/tmp/pathuni/home/server"
+      tags: [Server3, backend]
+    
+    # Temp patterns for testing *_temp exclusion
+    - path: "/tmp/pathuni/tmp/build"
+      tags: [build_temp, temporary]
+    - path: "/tmp/pathuni/var/work"
+      tags: [work_temp, cleanup]
+    - path: "/tmp/pathuni/opt/cache"
+      tags: [cache_temp, storage]

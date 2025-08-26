@@ -44,6 +44,19 @@ func TestTag_Validation(t *testing.T) {
 		{"empty string", "", true},
 		{"only underscores", "___", true},
 		{"only numbers", "123", true},
+		
+		// Valid wildcard patterns
+		{"wildcard asterisk", "work_*", false},
+		{"wildcard question mark", "dev?", false},
+		{"wildcard character class", "[abc]*", false},
+		{"wildcard range", "[a-z]*", false},
+		{"wildcard negated class", "[^test]*", false},
+		{"complex wildcard", "server[1-3]*", false},
+		{"multiple wildcards", "*_temp*", false},
+		
+		// Invalid wildcard patterns  
+		{"invalid wildcard unmatched bracket", "work_[", true},
+		{"invalid wildcard empty class", "work_[]", true},
 	}
 
 	for _, tt := range tests {
@@ -369,6 +382,116 @@ func TestTag_MatchesTagConditions(t *testing.T) {
 			pathTags:   []string{"Home", "Dev"},
 			conditions: [][]string{{"home", "dev"}},
 			expected:   true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := matchesTagConditions(tt.pathTags, tt.conditions)
+			if result != tt.expected {
+				t.Errorf("Expected %v, got %v for tags %v with conditions %v", 
+					tt.expected, result, tt.pathTags, tt.conditions)
+			}
+		})
+	}
+}
+
+func TestTag_WildcardMatching(t *testing.T) {
+	tests := []struct {
+		name       string
+		pathTags   []string
+		conditions [][]string
+		expected   bool
+	}{
+		// Basic wildcard patterns
+		{
+			name:       "asterisk wildcard matches",
+			pathTags:   []string{"work_prod", "dev"},
+			conditions: [][]string{{"work_*"}},
+			expected:   true,
+		},
+		{
+			name:       "asterisk wildcard no match",
+			pathTags:   []string{"home", "dev"},
+			conditions: [][]string{{"work_*"}},
+			expected:   false,
+		},
+		{
+			name:       "question mark wildcard matches",
+			pathTags:   []string{"hunt", "gaming"},
+			conditions: [][]string{{"?unt"}},
+			expected:   true,
+		},
+		{
+			name:       "question mark wildcard no match",
+			pathTags:   []string{"blunt", "gaming"}, // blunt has 5 chars, ?unt expects 4
+			conditions: [][]string{{"?unt"}},
+			expected:   false,
+		},
+		// Case insensitive wildcard matching (critical test from spec)
+		{
+			name:       "case insensitive wildcard a?l matches ALL",
+			pathTags:   []string{"ALL", "general"},
+			conditions: [][]string{{"a?l"}},
+			expected:   true,
+		},
+		{
+			name:       "case insensitive wildcard server* matches Server3",
+			pathTags:   []string{"Server3", "backend"},
+			conditions: [][]string{{"server*"}},
+			expected:   true,
+		},
+		// Character class patterns
+		{
+			name:       "character class matches",
+			pathTags:   []string{"server1", "production"},
+			conditions: [][]string{{"server[123]"}},
+			expected:   true,
+		},
+		{
+			name:       "character class no match",
+			pathTags:   []string{"server4", "production"},
+			conditions: [][]string{{"server[123]"}},
+			expected:   false,
+		},
+		// Complex patterns
+		{
+			name:       "complex pattern *_temp matches",
+			pathTags:   []string{"build_temp", "temporary"},
+			conditions: [][]string{{"*_temp"}},
+			expected:   true,
+		},
+		{
+			name:       "multiple wildcard conditions OR logic",
+			pathTags:   []string{"work_dev", "rust"},
+			conditions: [][]string{{"work_*"}, {"server*"}}, // OR logic
+			expected:   true,
+		},
+		// AND logic with wildcards  
+		{
+			name:       "AND logic with wildcard matches",
+			pathTags:   []string{"work_prod", "dev"},
+			conditions: [][]string{{"work_*", "dev"}}, // AND logic
+			expected:   true,
+		},
+		{
+			name:       "AND logic with wildcard partial match",
+			pathTags:   []string{"work_prod", "rust"}, // has work_* but missing dev
+			conditions: [][]string{{"work_*", "dev"}}, // AND logic
+			expected:   false,
+		},
+		// Mixed exact and wildcard
+		{
+			name:       "mixed exact and wildcard matching",
+			pathTags:   []string{"home", "server1"},
+			conditions: [][]string{{"home"}, {"server*"}}, // OR logic
+			expected:   true,
+		},
+		{
+			name:       "mixed exact and wildcard no match",
+			pathTags:   []string{"office", "database"},
+			conditions: [][]string{{"home"}, {"server*"}}, // OR logic
+			expected:   false,
 		},
 	}
 

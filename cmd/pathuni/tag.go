@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"path/filepath"
 	"regexp"
 	"strings"
 )
@@ -12,8 +13,24 @@ import (
 // - 3-20 characters total
 var tagRegex = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_]{2,19}$`)
 
+// isWildcardTag checks if a tag contains wildcard characters
+func isWildcardTag(tag string) bool {
+	return strings.ContainsAny(tag, "*?[]")
+}
+
 // validateTag checks if a tag meets the validation criteria
 func validateTag(tag string) error {
+	// Check if this is a wildcard tag
+	if isWildcardTag(tag) {
+		// For wildcard tags, validate the pattern syntax using filepath.Match
+		_, err := filepath.Match(tag, "test")
+		if err != nil {
+			return fmt.Errorf("invalid wildcard pattern '%s': %v", tag, err)
+		}
+		return nil
+	}
+	
+	// For exact tags, use strict validation
 	if !tagRegex.MatchString(tag) {
 		return fmt.Errorf("invalid tag '%s': tags must be 3-20 characters, start with a letter, and contain only letters, numbers, and underscores", tag)
 	}
@@ -97,16 +114,34 @@ func parseTagFilter(filter string) ([][]string, error) {
 	return result, nil
 }
 
+// hasMatchingTag checks if any of the path's tags matches the given pattern
+// Supports both exact matches and wildcard patterns
+func hasMatchingTag(pathTags []string, pattern string) bool {
+	// Check if pattern contains wildcard characters
+	hasWildcard := isWildcardTag(pattern)
+	
+	for _, tag := range pathTags {
+		if hasWildcard {
+			// Case-insensitive wildcard matching
+			matched, err := filepath.Match(strings.ToLower(pattern), strings.ToLower(tag))
+			if err == nil && matched {
+				return true
+			}
+		} else {
+			// Case-insensitive exact matching
+			if strings.EqualFold(pattern, tag) {
+				return true
+			}
+		}
+	}
+	
+	return false
+}
+
 // matchesTagConditions checks if a set of path tags matches the filter conditions
 func matchesTagConditions(pathTags []string, conditions [][]string) bool {
 	if len(conditions) == 0 {
 		return false // No conditions means no match
-	}
-	
-	// Convert path tags to lowercase for case-insensitive matching
-	pathTagsLower := make(map[string]bool)
-	for _, tag := range pathTags {
-		pathTagsLower[strings.ToLower(tag)] = true
 	}
 	
 	// OR logic between condition groups
@@ -114,7 +149,7 @@ func matchesTagConditions(pathTags []string, conditions [][]string) bool {
 		// AND logic within each group
 		allMatch := true
 		for _, requiredTag := range andGroup {
-			if !pathTagsLower[strings.ToLower(requiredTag)] {
+			if !hasMatchingTag(pathTags, requiredTag) {
 				allMatch = false
 				break
 			}
@@ -207,16 +242,11 @@ func getPathSkipReasons(pathTags []string, isExplicitlyTagged bool, filter TagFi
 
 // getExcludeReason returns a reason string if path matches exclude conditions, empty otherwise
 func getExcludeReason(pathTags []string, excludeConditions [][]string) string {
-	pathTagsLower := make(map[string]bool)
-	for _, tag := range pathTags {
-		pathTagsLower[strings.ToLower(tag)] = true
-	}
-	
 	// Find the first exclude condition that matches
 	for _, andGroup := range excludeConditions {
 		allMatch := true
 		for _, requiredTag := range andGroup {
-			if !pathTagsLower[strings.ToLower(requiredTag)] {
+			if !hasMatchingTag(pathTags, requiredTag) {
 				allMatch = false
 				break
 			}
@@ -226,7 +256,7 @@ func getExcludeReason(pathTags []string, excludeConditions [][]string) string {
 			// Find which tag from pathTags matches this condition
 			for _, pathTag := range pathTags {
 				for _, excludeTag := range andGroup {
-					if strings.EqualFold(pathTag, excludeTag) {
+					if hasMatchingTag([]string{pathTag}, excludeTag) {
 						return fmt.Sprintf("%s = %s", pathTag, excludeTag)
 					}
 				}

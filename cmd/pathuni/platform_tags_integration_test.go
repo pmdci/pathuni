@@ -193,3 +193,93 @@ func TestPlatformTags_ComplexScenarios(t *testing.T) {
 		})
 	}
 }
+
+// TestPlatformTags_WildcardFiltering tests wildcard pattern matching in tag filtering
+func TestPlatformTags_WildcardFiltering(t *testing.T) {
+	setupTestFilesystem(t)
+	defer cleanupTestFilesystem()
+
+	testConfigPath := filepath.Join("testdata", "wildcard_tags_basic.yaml")
+
+	tests := []struct {
+		name              string
+		includeFlag       string
+		excludeFlag       string
+		expectedIncluded  int
+		expectedSkipped   int
+	}{
+		{
+			name:             "include work_* wildcard pattern",
+			includeFlag:      "work_*",
+			excludeFlag:      "",
+			expectedIncluded: 6, // untagged + work_prod, work_dev, work_staging, Work_Prod, work_temp (case insensitive)
+			expectedSkipped:  13, // All others without work_* pattern
+		},
+		{
+			name:             "include server* wildcard pattern",
+			includeFlag:      "server*",
+			excludeFlag:      "",
+			expectedIncluded: 5, // untagged + server1, server2, serverless, Server3 (case insensitive)
+			expectedSkipped:  14, // All others without server* pattern
+		},
+		{
+			name:             "exclude ?unt wildcard pattern",
+			includeFlag:      "",
+			excludeFlag:      "?unt",
+			expectedIncluded: 17, // All except hunt, punt (2 excluded) 
+			expectedSkipped:  2, // hunt, punt patterns match ?unt
+		},
+		{
+			name:             "include a?l wildcard pattern (case insensitive)",
+			includeFlag:      "a?l",
+			excludeFlag:      "",
+			expectedIncluded: 3, // untagged + all, aol (app doesn't match a?l)
+			expectedSkipped:  16, // All others
+		},
+		{
+			name:             "exclude *_temp wildcard pattern",
+			includeFlag:      "",
+			excludeFlag:      "*_temp",
+			expectedIncluded: 16, // All except build_temp, work_temp, cache_temp (3 excluded)
+			expectedSkipped:  3, // 3 temp patterns excluded
+		},
+		{
+			name:             "complex: include work_*,server* exclude *_temp",
+			includeFlag:      "work_*,server*",
+			excludeFlag:      "*_temp",
+			expectedIncluded: 9, // untagged + 5 work_* + 4 server* - 1 work_temp (excluded)
+			expectedSkipped:  10, // Others excluded by include filter or temp exclude
+		},
+		{
+			name:             "AND logic: work_*+dev (wildcard AND exact)",
+			includeFlag:      "work_*+dev",
+			excludeFlag:      "",
+			expectedIncluded: 2, // untagged + work_prod has both work_* and dev
+			expectedSkipped:  17, // All others
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			tagFilter, err := parseTagFlags(test.includeFlag, test.excludeFlag)
+			if err != nil {
+				t.Fatalf("Failed to parse tag flags: %v", err)
+			}
+
+			validPaths, skippedPaths, _, err := EvaluateConfig(testConfigPath, "macOS", "bash", tagFilter)
+			if err != nil {
+				t.Fatalf("EvaluateConfig failed: %v", err)
+			}
+
+			if len(validPaths) != test.expectedIncluded {
+				t.Errorf("Expected %d included paths, got %d: %v", test.expectedIncluded, len(validPaths), validPaths)
+			}
+
+			if len(skippedPaths) != test.expectedSkipped {
+				t.Errorf("Expected %d skipped paths, got %d: %v", test.expectedSkipped, len(skippedPaths), skippedPaths)
+			}
+
+			t.Logf("Test %s: included=%v, skipped=%v", test.name, validPaths, skippedPaths)
+		})
+	}
+}
