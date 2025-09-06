@@ -53,33 +53,57 @@ func renderPwsh(paths []string) string {
 }
 
 func runInit() {
-	configPath := getConfigPath()
-	osName, _ := getOSName()
-	shellName, _ := getShellName()
+    osName, _ := getOSName()
+    shellName, _ := getShellName()
 
-	if !osIsValid(osName) {
-		fmt.Fprintf(os.Stderr, "Unsupported OS '%s'. Supported OS: %s\n", osName, strings.Join(osNames(), ", "))
-		os.Exit(1)
-	}
+    if !osIsValid(osName) {
+        fmt.Fprintf(os.Stderr, "Unsupported OS '%s'. Supported OS: %s\n", osName, strings.Join(osNames(), ", "))
+        os.Exit(1)
+    }
 
-	if !shellIsValid(shellName) {
-		fmt.Fprintf(os.Stderr, "Unsupported shell '%s'. Supported shells: %s\n", shellName, strings.Join(shellNames(), ", "))
-		os.Exit(1)
-	}
+    if !shellIsValid(shellName) {
+        fmt.Fprintf(os.Stderr, "Unsupported shell '%s'. Supported shells: %s\n", shellName, strings.Join(shellNames(), ", "))
+        os.Exit(1)
+    }
 
-	// Parse tag filters
-	tagFilter, err := parseTagFlags(tagsInclude, tagsExclude)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error parsing tag filters: %v\n", err)
-		os.Exit(1)
-	}
+    // Validate scope flag
+    if !isValidScope(scope) {
+        fmt.Fprintf(os.Stderr, "Error: Invalid scope option '%s'. Use 'system', 'pathuni', or 'full'\n", scope)
+        os.Exit(1)
+    }
 
-	paths, _, err := collectValidPaths(configPath, osName, shellName, tagFilter)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error reading config file: %v\n", err)
-		os.Exit(1)
-	}
+    // Compute the list based on scope using shared resolvers
+    var paths []string
+    switch scope {
+    case "system":
+        p, err := resolveSystemPaths()
+        if err != nil {
+            fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+            os.Exit(1)
+        }
+        paths = p
+    case "pathuni":
+        p, err := resolvePathuniPaths()
+        if err != nil {
+            fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+            os.Exit(1)
+        }
+        paths = p
+    case "full":
+        sys, err := resolveSystemPaths()
+        if err != nil {
+            fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+            os.Exit(1)
+        }
+        pu, err := resolvePathuniPaths()
+        if err != nil {
+            fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+            os.Exit(1)
+        }
+        // pathuni-first precedence for init
+        paths = mergeFull(pu, sys, true)
+    }
 
-	// Generate PATH export using original renderers
-	fmt.Println(renderers[shellName](paths))
+    // Generate PATH export using original renderers
+    fmt.Println(renderers[shellName](paths))
 }
