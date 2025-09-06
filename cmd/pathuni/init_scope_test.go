@@ -66,4 +66,14 @@ func TestInit_Scopes_Render_Bash(t *testing.T) {
     if out != expected {
         t.Errorf("full scope render mismatch:\nwant: %q\n got: %q", expected, out)
     }
+
+    // full scope with defer-env (prepend pathuni and reference $PATH)
+    deferEnv = true
+    scope = "full"
+    out = captureOutput(runInit)
+    expected = "export PATH=\"" + expectedPathuni + ":${PATH}\"\n"
+    if out != expected {
+        t.Errorf("full scope defer-env render mismatch:\nwant: %q\n got: %q", expected, out)
+    }
+    deferEnv = false
 }

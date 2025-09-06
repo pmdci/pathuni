@@ -20,6 +20,7 @@ var (
     scope        string
     tagsInclude  string
     tagsExclude  string
+    deferEnv     bool
 )
 
 func getConfigPath() string {
@@ -147,14 +148,17 @@ func init() {
     // Global scope flag used by all commands (init, dry-run, dump)
     rootCmd.PersistentFlags().StringVarP(&scope, "scope", "s", "full", "Paths to include: system|pathuni|full")
 
-	// Add subcommands
-	rootCmd.AddCommand(initCmd)
-	rootCmd.AddCommand(dryRunCmd)
-	rootCmd.AddCommand(dumpCmd)
+    // Add subcommands
+    rootCmd.AddCommand(initCmd)
+    rootCmd.AddCommand(dryRunCmd)
+    rootCmd.AddCommand(dumpCmd)
 
 
     // Add flags specific to dump command
     dumpCmd.Flags().StringVarP(&dumpFormat, "format", "f", "plain", "Output format: plain|json|yaml")
+
+    // Add flags specific to init command
+    initCmd.Flags().BoolVarP(&deferEnv, "defer-env", "d", false, "Do not expand current PATH; reference it at evaluation time (init only, requires --scope=full)")
 
 	// Custom version template
 	rootCmd.SetVersionTemplate(`pathuni ` + Version + `
