@@ -14,22 +14,22 @@ func runDump() {
 		fmt.Fprintf(os.Stderr, "Error: Unsupported format '%s'. Supported formats: plain, json, yaml\n", dumpFormat)
 		os.Exit(1)
 	}
-	if !isValidScope(dumpScope) {
-		fmt.Fprintf(os.Stderr, "Error: Invalid scope option '%s'. Use 'system', 'pathuni', or 'full'\n", dumpScope)
-		os.Exit(1)
-	}
+    if !isValidScope(scope) {
+        fmt.Fprintf(os.Stderr, "Error: Invalid scope option '%s'. Use 'system', 'pathuni', or 'full'\n", scope)
+        os.Exit(1)
+    }
 
 	var paths []string
 	var err error
 
-	switch dumpScope {
-	case "system":
-		paths, err = getCurrentPath()
-	case "pathuni":
-		paths, err = getPathUniPaths()
-	case "full":
-		paths, err = getAllPathsWithTagFiltering()
-	}
+    switch scope {
+    case "system":
+        paths, err = getCurrentPath()
+    case "pathuni":
+        paths, err = getPathUniPaths()
+    case "full":
+        paths, err = getAllPathsWithTagFiltering()
+    }
 
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
@@ -62,39 +62,19 @@ func getCurrentPath() ([]string, error) {
 }
 
 func getAllPathsWithTagFiltering() ([]string, error) {
-	// Get current system PATH (no filtering - these paths have no tags)
-	systemPaths, err := getCurrentPath()
-	if err != nil {
-		return nil, err
-	}
-	
-	// Get PathUni paths with tag filtering applied
-	pathuniPaths, err := getPathUniPaths()
-	if err != nil {
-		return nil, err
-	}
-	
-	// Create a map to avoid duplicates while preserving order
-	seen := make(map[string]bool)
-	var result []string
-	
-	// Add system paths first
-	for _, path := range systemPaths {
-		if !seen[path] {
-			result = append(result, path)
-			seen[path] = true
-		}
-	}
-	
-	// Add PathUni paths (filtered), avoiding duplicates
-	for _, path := range pathuniPaths {
-		if !seen[path] {
-			result = append(result, path)
-			seen[path] = true
-		}
-	}
-	
-	return result, nil
+    // Resolve both sources with internal dedupe
+    systemPaths, err := resolveSystemPaths()
+    if err != nil {
+        return nil, err
+    }
+
+    pathuniPaths, err := resolvePathuniPaths()
+    if err != nil {
+        return nil, err
+    }
+
+    // Merge with pathuni-first precedence to align with init
+    return mergeFull(pathuniPaths, systemPaths, true), nil
 }
 
 func getPathUniPaths() ([]string, error) {

@@ -13,13 +13,13 @@ import (
 var Version = "dev"
 
 var (
-	shell        string
-	config       string
-	osOverride   string
-	dumpFormat   string
-	dumpScope    string
-	tagsInclude  string
-	tagsExclude  string
+    shell        string
+    config       string
+    osOverride   string
+    dumpFormat   string
+    scope        string
+    tagsInclude  string
+    tagsExclude  string
 )
 
 func getConfigPath() string {
@@ -143,7 +143,9 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&config, "config", "c", "", "Path to config file (default: ~/.config/pathuni/my_paths.yaml)")
 	rootCmd.PersistentFlags().StringVarP(&osOverride, "os", "O", "", "OS type: macOS|linux (detected if not specified)")
 	rootCmd.PersistentFlags().StringVarP(&tagsInclude, "tags-include", "t", "", "Include paths with tags (comma=OR, plus=AND): home,dev or work+server")
-	rootCmd.PersistentFlags().StringVarP(&tagsExclude, "tags-exclude", "x", "", "Exclude paths with tags (comma=OR, plus=AND): gaming,temp or work+gaming")
+    rootCmd.PersistentFlags().StringVarP(&tagsExclude, "tags-exclude", "x", "", "Exclude paths with tags (comma=OR, plus=AND): gaming,temp or work+gaming")
+    // Global scope flag used by all commands (init, dry-run, dump)
+    rootCmd.PersistentFlags().StringVarP(&scope, "scope", "s", "full", "Paths to include: system|pathuni|full")
 
 	// Add subcommands
 	rootCmd.AddCommand(initCmd)
@@ -151,9 +153,8 @@ func init() {
 	rootCmd.AddCommand(dumpCmd)
 
 
-	// Add flags specific to dump command
-	dumpCmd.Flags().StringVarP(&dumpFormat, "format", "f", "plain", "Output format: plain|json|yaml")
-	dumpCmd.Flags().StringVarP(&dumpScope, "scope", "s", "full", "Paths to include: system|pathuni|full")
+    // Add flags specific to dump command
+    dumpCmd.Flags().StringVarP(&dumpFormat, "format", "f", "plain", "Output format: plain|json|yaml")
 
 	// Custom version template
 	rootCmd.SetVersionTemplate(`pathuni ` + Version + `
@@ -171,6 +172,8 @@ This program comes with ABSOLUTELY NO WARRANTY.
 See <https://www.gnu.org/licenses/gpl-3.0.html> for details.
 
 Source: https://github.com/pmdci/pathuni
+
+In memory of R Mariner.
 `)
 }
 
@@ -180,4 +183,3 @@ func main() {
 		os.Exit(1)
 	}
 }
-

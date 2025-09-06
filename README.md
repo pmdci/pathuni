@@ -285,9 +285,6 @@ Shell : zsh (detected)
 5 paths included in total
 1 skipped in total
 
-Output would be:
-  export PATH="/Users/you/.local/bin:/Users/you/.cargo/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/special"
-
 # With tag filtering showing detailed skip reasons
 $ pathuni dry-run --tags-include=essential
 Evaluating: /Users/you/.config/pathuni/my_paths.yaml
@@ -310,9 +307,6 @@ Shell : zsh (detected)
 1 path included in total
 4 skipped in total
 
-Output would be:
-  export PATH="/Users/you/.local/bin"
-
 # Complex filtering with inheritance and explicit empty tags,
 # specifying zsh as the shell
 $ pathuni dry-run --tags-exclude=gui --shell=zsh
@@ -333,9 +327,6 @@ Shell : zsh (specified)
 
 3 paths included in total
 2 skipped in total
-
-Output would be:
-  export PATH="/Users/you/.local/bin:/Users/you/.cargo/bin:/usr/local/special"
 ```
 
 **Example dump outputs:**
@@ -381,7 +372,7 @@ Most dotfiles managers are heavyweight solutions for simple PATH management. Pat
 
 ## Contributing
 
-This is a very early release. Pull requests, bug reports, and feature suggestions are welcome!
+Pull requests, bug reports, and feature suggestions are welcome!
 
 Areas that could use help:
 
