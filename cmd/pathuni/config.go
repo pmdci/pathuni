@@ -521,10 +521,12 @@ func collectValidPaths(configPath, platform, shell string, tagFilter TagFilter) 
 
 // PathStatus represents the status of a path after evaluation
 type PathStatus struct {
-	Path   string
-	Tags   []string
-	Exists bool
-	Included bool // true if should be included after tag filtering
+    Path   string
+    Tags   []string
+    Exists bool
+    Included bool // true if should be included after tag filtering
+    // PassesFilter indicates whether tag filtering passes regardless of existence
+    PassesFilter bool
 }
 
 // EvaluateConfigDetailed returns detailed path status for improved dry-run output
@@ -551,22 +553,24 @@ func EvaluateConfigDetailed(configPath, platform, shell string, tagFilter TagFil
 			expanded := os.ExpandEnv(entry.Path)
 			resolved := filepath.Clean(expanded)
 			
-			// Check existence first (existence wins over filtering)
-			info, err := os.Stat(resolved)
-			exists := (err == nil && info.IsDir())
-			
-			// Get effective tags (with platform inheritance)
-			effectiveTags := entry.GetEffectiveTags(platformTags)
-			
-			// Only apply tag filtering if path exists
-			included := exists && shouldIncludePath(effectiveTags, entry.IsExplicitlyTagged(), tagFilter)
-			
-			pathStatuses = append(pathStatuses, PathStatus{
-				Path:     resolved,
-				Tags:     effectiveTags,  // Store effective tags, not original
-				Exists:   exists,
-				Included: included,
-			})
+            // Check existence
+            info, err := os.Stat(resolved)
+            exists := (err == nil && info.IsDir())
+            
+            // Get effective tags (with platform inheritance)
+            effectiveTags := entry.GetEffectiveTags(platformTags)
+            
+            // Evaluate tag filtering independently from existence
+            passes := shouldIncludePath(effectiveTags, entry.IsExplicitlyTagged(), tagFilter)
+            included := exists && passes
+            
+            pathStatuses = append(pathStatuses, PathStatus{
+                Path:     resolved,
+                Tags:     effectiveTags,  // Store effective tags, not original
+                Exists:   exists,
+                Included: included,
+                PassesFilter: passes,
+            })
 		}
 	}
 	

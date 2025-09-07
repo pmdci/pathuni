@@ -27,6 +27,10 @@ func TestInit_Scopes_Render_Bash(t *testing.T) {
     setupTestFilesystem(t)
     defer cleanupTestFilesystem()
 
+    // Reset globals to safe defaults for this test
+    prune = "pathuni"
+    deferEnv = false
+
     // Set deterministic config and environment
     config = filepath.Join("testdata", "valid_config.yaml")
     osOverride = "macOS"
@@ -76,4 +80,49 @@ func TestInit_Scopes_Render_Bash(t *testing.T) {
         t.Errorf("full scope defer-env render mismatch:\nwant: %q\n got: %q", expected, out)
     }
     deferEnv = false
+
+    // system scope with prune behavior
+    scope = "system"
+    prune = "none"
+    out = captureOutput(runInit)
+    // Should include both entries including non-existent ones (if any were present)
+    expected = "export PATH=\"/tmp/pathuni/usr/bin:/tmp/pathuni/bin\"\n"
+    if out != expected {
+        t.Errorf("system scope no-prune mismatch:\nwant: %q\n got: %q", expected, out)
+    }
+
+    // Add a fake missing path to PATH and test prune=system
+    t.Setenv("PATH", "/tmp/pathuni/usr/bin:/does/not/exist:/tmp/pathuni/bin")
+    prune = "system"
+    out = captureOutput(runInit)
+    // Missing entry should be removed in output
+    expected = "export PATH=\"/tmp/pathuni/usr/bin:/tmp/pathuni/bin\"\n"
+    if out != expected {
+        t.Errorf("system scope prune=system mismatch:\nwant: %q\n got: %q", expected, out)
+    }
+
+    // Now test pathuni list includes missing entries when prune=none|system
+    // Create a temporary config with one existing and one missing path
+    tmpCfg, err := os.CreateTemp("/tmp/pathuni/home/Pratt/.config/pathuni", "cfg-*.yaml")
+    if err != nil { t.Fatalf("temp cfg: %v", err) }
+    defer os.Remove(tmpCfg.Name())
+    cfgContent := "all:\n  paths:\n    - \"/tmp/pathuni/usr/local/bin\"\n    - \"/tmp/pathuni/does-not-exist\"\n"
+    if _, err := tmpCfg.WriteString(cfgContent); err != nil { t.Fatalf("write cfg: %v", err) }
+    tmpCfg.Close()
+    config = tmpCfg.Name()
+
+    // scope=pathuni, prune=none should include both paths
+    scope = "pathuni"
+    prune = "none"
+    out = captureOutput(runInit)
+    if !strings.Contains(out, "/tmp/pathuni/usr/local/bin") || !strings.Contains(out, "/tmp/pathuni/does-not-exist") {
+        t.Errorf("prune=none should include missing pathuni entries, got: %s", out)
+    }
+
+    // prune=pathuni should drop the missing one
+    prune = "pathuni"
+    out = captureOutput(runInit)
+    if strings.Contains(out, "/tmp/pathuni/does-not-exist") {
+        t.Errorf("prune=pathuni should drop missing pathuni entry, got: %s", out)
+    }
 }

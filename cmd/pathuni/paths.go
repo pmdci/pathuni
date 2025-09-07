@@ -2,6 +2,10 @@ package main
 
 // Shared path resolution helpers to avoid duplication across commands.
 
+import (
+    "os"
+)
+
 // dedupePreserveOrder removes duplicate strings while preserving the first
 // occurrence order.
 func dedupePreserveOrder(in []string) []string {
@@ -26,13 +30,39 @@ func resolveSystemPaths() ([]string, error) {
     return dedupePreserveOrder(paths), nil
 }
 
-// resolvePathuniPaths returns config-derived paths for the current context, deduped.
+// resolvePathuniPaths returns config-derived paths for the current context,
+// respecting the global prune flag. When prune is "pathuni" or "all", only
+// existing paths are included (current behavior). When prune is "none" or
+// "system", include paths that pass tag filtering regardless of existence.
 func resolvePathuniPaths() ([]string, error) {
-    paths, err := getPathUniPaths()
-    if err != nil {
-        return nil, err
+    configPath := getConfigPath()
+    osName, _ := getOSName()
+    shellName, _ := getShellName()
+    tagFilter, err := parseTagFlags(tagsInclude, tagsExclude)
+    if err != nil { return nil, err }
+
+    statuses, _, err := EvaluateConfigDetailed(configPath, osName, shellName, tagFilter)
+    if err != nil { return nil, err }
+
+    var out []string
+    switch prune {
+    case "pathuni", "all":
+        for _, st := range statuses {
+            if st.Included {
+                out = append(out, st.Path)
+            }
+        }
+    case "none", "system":
+        for _, st := range statuses {
+            if st.PassesFilter { // include even if not existing
+                out = append(out, st.Path)
+            }
+        }
+    default:
+        // Fallback to safe behavior
+        for _, st := range statuses { if st.Included { out = append(out, st.Path) } }
     }
-    return dedupePreserveOrder(paths), nil
+    return dedupePreserveOrder(out), nil
 }
 
 // mergeFull merges pathuni and system lists according to the precedence flag
@@ -52,3 +82,14 @@ func mergeFull(pathuni, system []string, pathuniFirst bool) []string {
     return dedupePreserveOrder(combined)
 }
 
+// filterExisting returns only entries that exist and are directories.
+func filterExisting(paths []string) []string {
+    out := make([]string, 0, len(paths))
+    for _, p := range paths {
+        expanded := os.ExpandEnv(p)
+        if info, err := os.Stat(expanded); err == nil && info.IsDir() {
+            out = append(out, expanded)
+        }
+    }
+    return out
+}

@@ -110,11 +110,19 @@ func runInit() {
         fmt.Fprintf(os.Stderr, "Error: Invalid scope option '%s'. Use 'system', 'pathuni', or 'full'\n", scope)
         os.Exit(1)
     }
+    if !isValidPrune(prune) {
+        fmt.Fprintf(os.Stderr, "Error: Invalid prune option '%s'. Use 'none', 'pathuni', 'system', or 'all'\n", prune)
+        os.Exit(1)
+    }
 
     // Handle defer-env for init: prepend pathuni and reference live PATH
     if deferEnv {
         if scope != "full" {
             fmt.Fprintf(os.Stderr, "Error: --defer-env is only valid with --scope=full\n")
+            os.Exit(1)
+        }
+        if prune == "system" || prune == "all" {
+            fmt.Fprintf(os.Stderr, "Error: --prune=%s is incompatible with --defer-env (system PATH is not expanded)\n", prune)
             os.Exit(1)
         }
         pu, err := resolvePathuniPaths()
@@ -135,6 +143,9 @@ func runInit() {
             fmt.Fprintf(os.Stderr, "Error: %v\n", err)
             os.Exit(1)
         }
+        if prune == "system" || prune == "all" {
+            p = filterExisting(p)
+        }
         paths = p
     case "pathuni":
         p, err := resolvePathuniPaths()
@@ -148,6 +159,9 @@ func runInit() {
         if err != nil {
             fmt.Fprintf(os.Stderr, "Error: %v\n", err)
             os.Exit(1)
+        }
+        if prune == "system" || prune == "all" {
+            sys = filterExisting(sys)
         }
         pu, err := resolvePathuniPaths()
         if err != nil {

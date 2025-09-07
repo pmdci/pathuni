@@ -10,12 +10,16 @@ import (
 )
 
 func runDump() {
-	if !isValidFormat(dumpFormat) {
-		fmt.Fprintf(os.Stderr, "Error: Unsupported format '%s'. Supported formats: plain, json, yaml\n", dumpFormat)
-		os.Exit(1)
-	}
+    if !isValidFormat(dumpFormat) {
+        fmt.Fprintf(os.Stderr, "Error: Unsupported format '%s'. Supported formats: plain, json, yaml\n", dumpFormat)
+        os.Exit(1)
+    }
     if !isValidScope(scope) {
         fmt.Fprintf(os.Stderr, "Error: Invalid scope option '%s'. Use 'system', 'pathuni', or 'full'\n", scope)
+        os.Exit(1)
+    }
+    if !isValidPrune(prune) {
+        fmt.Fprintf(os.Stderr, "Error: Invalid prune option '%s'. Use 'none', 'pathuni', 'system', or 'all'\n", prune)
         os.Exit(1)
     }
 
@@ -24,9 +28,12 @@ func runDump() {
 
     switch scope {
     case "system":
-        paths, err = getCurrentPath()
+        paths, err = resolveSystemPaths()
+        if err == nil && (prune == "system" || prune == "all") {
+            paths = filterExisting(paths)
+        }
     case "pathuni":
-        paths, err = getPathUniPaths()
+        paths, err = resolvePathuniPaths()
     case "full":
         paths, err = getAllPathsWithTagFiltering()
     }
@@ -50,7 +57,16 @@ func isValidFormat(format string) bool {
 }
 
 func isValidScope(scope string) bool {
-	return scope == "system" || scope == "pathuni" || scope == "full"
+    return scope == "system" || scope == "pathuni" || scope == "full"
+}
+
+func isValidPrune(p string) bool {
+    switch p {
+    case "none", "pathuni", "system", "all":
+        return true
+    default:
+        return false
+    }
 }
 
 func getCurrentPath() ([]string, error) {
@@ -71,6 +87,11 @@ func getAllPathsWithTagFiltering() ([]string, error) {
     pathuniPaths, err := resolvePathuniPaths()
     if err != nil {
         return nil, err
+    }
+
+    // Apply prune to system side if requested
+    if prune == "system" || prune == "all" {
+        systemPaths = filterExisting(systemPaths)
     }
 
     // Merge with pathuni-first precedence to align with init

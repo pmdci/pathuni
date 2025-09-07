@@ -21,6 +21,7 @@ var (
     tagsInclude  string
     tagsExclude  string
     deferEnv     bool
+    prune        string
 )
 
 func getConfigPath() string {
@@ -159,6 +160,8 @@ func init() {
 
     // Add flags specific to init command
     initCmd.Flags().BoolVarP(&deferEnv, "defer-env", "d", false, "Do not expand current PATH; reference it at evaluation time (init only, requires --scope=full)")
+    // Prune flag (persistent) - controls removal of non-existent directories
+    rootCmd.PersistentFlags().StringVarP(&prune, "prune", "p", "pathuni", "Prune missing paths: none|pathuni|system|all")
 
 	// Custom version template
 	rootCmd.SetVersionTemplate(`pathuni ` + Version + `

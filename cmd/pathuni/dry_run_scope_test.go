@@ -24,6 +24,10 @@ func TestDryRun_ScopeSystemAndFull(t *testing.T) {
     setupTestFilesystem(t)
     defer cleanupTestFilesystem()
 
+    // Reset globals to safe defaults for this test
+    prune = "pathuni"
+    deferEnv = false
+
     config = filepath.Join("testdata", "valid_config.yaml")
     osOverride = "macOS"
     shell = "bash"
@@ -43,4 +47,3 @@ func TestDryRun_ScopeSystemAndFull(t *testing.T) {
     if !strings.Contains(out, "[+] /tmp/pathuni/usr/local/bin") { t.Fatalf("expected pathuni entry not found with [+]: %s", out) }
     if !strings.Contains(out, "[.] /tmp/pathuni/bin") { t.Fatalf("system entry not found with [.]: %s", out) }
 }
-
