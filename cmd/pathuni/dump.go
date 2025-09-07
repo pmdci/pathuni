@@ -23,12 +23,15 @@ func runDump() {
         os.Exit(1)
     }
 
-	var paths []string
-	var err error
+    var paths []string
+    var err error
+    configPath := getConfigPath()
+    osName, _ := getOSName()
+    shellName, _ := getShellName()
 
     switch scope {
     case "system":
-        paths, err = resolveSystemPaths()
+        paths, err = resolveSystemPathsContext(configPath, osName, shellName)
         if err == nil && (prune == "system" || prune == "all") {
             paths = filterExisting(paths)
         }
@@ -79,7 +82,10 @@ func getCurrentPath() ([]string, error) {
 
 func getAllPathsWithTagFiltering() ([]string, error) {
     // Resolve both sources with internal dedupe
-    systemPaths, err := resolveSystemPaths()
+    configPath := getConfigPath()
+    osName, _ := getOSName()
+    shellName, _ := getShellName()
+    systemPaths, err := resolveSystemPathsContext(configPath, osName, shellName)
     if err != nil {
         return nil, err
     }
@@ -98,6 +104,7 @@ func getAllPathsWithTagFiltering() ([]string, error) {
     return mergeFull(pathuniPaths, systemPaths, true), nil
 }
 
+// This function is no longer being used. Do we plan to use itin the future? Shall we remove it?
 func getPathUniPaths() ([]string, error) {
 	configPath := getConfigPath()
 	osName, _ := getOSName()

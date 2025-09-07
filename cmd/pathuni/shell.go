@@ -138,7 +138,7 @@ func runInit() {
     var paths []string
     switch scope {
     case "system":
-        p, err := resolveSystemPaths()
+        p, err := resolveSystemPathsContext(getConfigPath(), osName, shellName)
         if err != nil {
             fmt.Fprintf(os.Stderr, "Error: %v\n", err)
             os.Exit(1)
@@ -155,7 +155,7 @@ func runInit() {
         }
         paths = p
     case "full":
-        sys, err := resolveSystemPaths()
+        sys, err := resolveSystemPathsContext(getConfigPath(), osName, shellName)
         if err != nil {
             fmt.Fprintf(os.Stderr, "Error: %v\n", err)
             os.Exit(1)

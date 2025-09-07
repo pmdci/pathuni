@@ -1,5 +1,7 @@
 # Pathuni
 
+![Pathuni Banner](assets/pathuni_social.png)
+
 A lightweight, cross-platform PATH management tool for dotfiles that work across multiple operating systems (macOS and Linux for now) and shells.
 
 ## What it does
@@ -53,7 +55,7 @@ Create `~/.config/pathuni/my_paths.yaml`:
 
 ```yaml
 all:
-  tags: [base, essential]                     # Platform-level tags (NEW in v0.4.5)
+  tags: [base, essential]                     # Platform-level tags
   paths:
     - "$HOME/.local/bin"                      # Inherits: [base, essential]
     - path: "$HOME/.cargo/bin"                # Explicit tags override inheritance
@@ -93,7 +95,68 @@ macos:
 
 With this setting, PowerShell will get the same comprehensive PATH that zsh/bash get automatically, including standard system directories like `/usr/bin`, `/bin`, etc.
 
-### Platform-Level Tag Inheritance (NEW in v0.4.5)
+#### Classification and Tags (PowerShell on macOS)
+
+You can control how those macOS system paths are classified and whether they
+participate in tag filtering:
+
+```yaml
+macos:
+  tags: [mac]
+  powershell:
+    include_system_paths: true
+    include_system_paths_as: system   # or pathuni (default: system)
+    # tags: [sys]                     # optional; used only when as=pathuni
+```
+
+- `include_system_paths_as: system` (default):
+  - Treats `/etc/paths` and `/etc/paths.d/*` entries as System.
+  - Dry-run marks them as `[.]` and counts as System.
+  - Pruned by `-p system|all`; tag filters do not apply.
+
+- `include_system_paths_as: pathuni`:
+  - Injects those entries on the Pathuni side.
+  - Dry-run marks them as `[+]` and counts as Pathuni.
+  - Subject to tag filters and `-p pathuni|all`.
+  - Tag semantics when `as=pathuni`:
+    - tags omitted → inherit platform tags (like simple string paths)
+    - `tags: [sys]` → explicit override tags
+    - `tags: []` → explicit empty tags (break inheritance)
+
+Quick examples:
+
+```yaml
+# A) Default: classify as system
+macos:
+  powershell:
+    include_system_paths: true
+    # include_system_paths_as: system (implicit)
+
+# B) Taggable: classify as pathuni and attach tags
+macos:
+  powershell:
+    include_system_paths: true
+    include_system_paths_as: pathuni
+    tags: [sys]
+
+# C) Inherit platform tags
+macos:
+  tags: [mac]
+  powershell:
+    include_system_paths: true
+    include_system_paths_as: pathuni
+    # tags omitted → inherit [mac]
+
+# D) Break inheritance (no tags)
+macos:
+  tags: [mac]
+  powershell:
+    include_system_paths: true
+    include_system_paths_as: pathuni
+    tags: []
+```
+
+### Platform-Level Tag Inheritance
 
 You can now define tags at the platform level (`all`, `macos`, `linux`) that are automatically inherited by simple string paths. This reduces repetition and makes configuration more maintainable:
 
@@ -174,7 +237,7 @@ pathuni --tags-include=dev --tags-exclude=work
 - **Wildcard patterns**: Support glob-style patterns using `*`, `?`, `[...]` syntax
   - Examples: `work_*`, `server?`, `[abc]*`, `*_temp`
 
-### Wildcard Tag Patterns (NEW in v0.5.0)
+### Wildcard Tag Patterns
 
 You can use glob-style wildcard patterns for flexible tag matching, perfect for hierarchical tag structures:
 
@@ -266,7 +329,7 @@ pathuni init
 pathuni init --shell=fish
 pathuni --shell=powershell  # shortcut: global flags work on root command
 
-# Specify OS explicitly (NEW in v0.4.6)
+# Specify OS explicitly
 pathuni init --os=linux
 
 # Choose scope and pruning
@@ -483,3 +546,11 @@ Size comparison (typical results as of v0.4.0):
 - Default Go build: ~6MB
 - Optimised build: ~4MB (31% reduction)
 - With UPX: ~1.6MB (74% reduction)
+
+## Migration Notes
+
+- PowerShell on macOS: prior versions injected `/etc/paths` and `/etc/paths.d/*`
+  as Pathuni entries by default. The default is now `include_system_paths_as:
+  system`, which renders them as System (`[.]`), unaffected by tag filters, and
+  controlled by `-p system|all`. If you relied on tag filtering for these paths,
+  set `include_system_paths_as: pathuni` and optionally provide `tags:`.

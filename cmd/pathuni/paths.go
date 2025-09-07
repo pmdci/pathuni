@@ -4,6 +4,7 @@ package main
 
 import (
     "os"
+    "gopkg.in/yaml.v3"
 )
 
 // dedupePreserveOrder removes duplicate strings while preserving the first
@@ -92,4 +93,77 @@ func filterExisting(paths []string) []string {
         }
     }
     return out
+}
+
+// getPowerShellPathEntries returns system path files as PathEntry(ies) when
+// configured to be injected on the pathuni side (as=pathuni). When tags are
+// provided in the YAML, they are attached explicitly; otherwise Tags=nil so
+// platform tag inheritance applies.
+func getPowerShellPathEntries(shell string, platformConfig PlatformConfig) []PathEntry {
+    var entries []PathEntry
+    if shell != "powershell" || platformConfig.PowerShell == nil || !platformConfig.PowerShell.IncludeSystemPaths {
+        return entries
+    }
+    as := platformConfig.PowerShell.IncludeSystemPathsAs
+    if as == "" { as = "system" }
+    if as != "pathuni" {
+        return entries
+    }
+    sys, err := getSystemPaths()
+    if err != nil {
+        return entries
+    }
+    var tags []string
+    if platformConfig.PowerShell.Tags != nil {
+        // Explicit tags provided (possibly empty slice to break inheritance)
+        tags = append([]string{}, platformConfig.PowerShell.Tags...)
+    } else {
+        // nil indicates inheritance
+        tags = nil
+    }
+    for _, p := range sys {
+        entries = append(entries, PathEntry{Path: p, Tags: tags})
+    }
+    return entries
+}
+
+// resolveSystemPathsContext returns system paths considering config context.
+// When shell=powershell and the platform config has include_system_paths true
+// with classification as "system" (default), also include macOS system path
+// files from /etc/paths and /etc/paths.d/*.
+func resolveSystemPathsContext(configPath, platform, shell string) ([]string, error) {
+    // Start with current PATH entries (deduped)
+    sys, err := getCurrentPath()
+    if err != nil {
+        return nil, err
+    }
+    sys = dedupePreserveOrder(sys)
+
+    // Only enhance for PowerShell when configured
+    if shell == "powershell" {
+        data, err := os.ReadFile(configPath)
+        if err == nil {
+            var cfg Config
+            if yaml.Unmarshal(data, &cfg) == nil {
+                var p PlatformConfig
+                switch platform {
+                case "macOS":
+                    p = cfg.MacOS
+                case "Linux":
+                    p = cfg.Linux
+                }
+                if p.PowerShell != nil && p.PowerShell.IncludeSystemPaths {
+                    as := p.PowerShell.IncludeSystemPathsAs
+                    if as == "" { as = "system" }
+                    if as == "system" {
+                        if extra, err := getSystemPaths(); err == nil {
+                            sys = mergeFull([]string{}, append(sys, extra...), false) // system-first irrelevant; we just dedupe
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    return dedupePreserveOrder(sys), nil
 }

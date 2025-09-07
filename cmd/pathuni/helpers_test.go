@@ -17,21 +17,21 @@ func TestHelpers_ReadPathsFile(t *testing.T) {
 		expectPaths []string
 		expectError bool
 	}{
-		{
-			name:        "system paths file",
-			filename:    "system_paths/paths",
+        {
+            name:        "system paths file",
+            filename:    "system_paths/etc/paths",
 			expectPaths: []string{"/tmp/pathuni/usr/local/bin", "/tmp/pathuni/usr/bin", "/tmp/pathuni/bin", "/tmp/pathuni/usr/sbin", "/tmp/pathuni/sbin"},
 			expectError: false,
 		},
-		{
-			name:        "homebrew paths",
-			filename:    "system_paths/paths.d/homebrew",
+        {
+            name:        "homebrew paths",
+            filename:    "system_paths/etc/paths.d/homebrew",
 			expectPaths: []string{"/tmp/pathuni/opt/homebrew/bin", "/tmp/pathuni/opt/homebrew/sbin"},
 			expectError: false,
 		},
-		{
-			name:        "user paths with comments",
-			filename:    "system_paths/paths.d/user_paths",
+        {
+            name:        "user paths with comments",
+            filename:    "system_paths/etc/paths.d/user_paths",
 			expectPaths: []string{"/tmp/pathuni/usr/local/go/bin", "/tmp/pathuni/usr/local/node/bin"},
 			expectError: false,
 		},
@@ -77,92 +77,74 @@ func TestHelpers_ReadPathsFile(t *testing.T) {
 	}
 }
 
-// Test helper function that uses testdata instead of real system paths
-func getTestSystemPaths() ([]string, error) {
-	var systemPaths []string
-	
-	// Read testdata/system_paths/paths
-	if paths, err := readPathsFile(filepath.Join("testdata", "system_paths", "paths")); err == nil {
-		systemPaths = append(systemPaths, paths...)
-	}
-	
-	// Read files in testdata/system_paths/paths.d/
-	pathsDir := filepath.Join("testdata", "system_paths", "paths.d")
-	if entries, err := os.ReadDir(pathsDir); err == nil {
-		for _, entry := range entries {
-			if !entry.IsDir() {
-				filePath := filepath.Join(pathsDir, entry.Name())
-				if paths, err := readPathsFile(filePath); err == nil {
-					systemPaths = append(systemPaths, paths...)
-				}
-			}
-		}
-	}
-	
-	return systemPaths, nil
-}
+// (Removed) getTestSystemPaths: tests now use the production getSystemPaths via
+// the PATHUNI_TEST_SYSTEM_PATHS_ROOT seam. Keeping code DRY and consistent.
 
 // Test helper function that mimics getShellSpecificPaths but uses test data
 func getTestShellSpecificPaths(shell string, platformConfig PlatformConfig) []string {
-	var additionalPaths []string
-	
-	switch shell {
-	case "powershell":
-		if platformConfig.PowerShell != nil && platformConfig.PowerShell.IncludeSystemPaths {
-			if systemPaths, err := getTestSystemPaths(); err == nil {
-				additionalPaths = append(additionalPaths, systemPaths...)
-			}
-		}
-	}
-	
-	return additionalPaths
+    // Ensure seam is enabled, then call production helper
+    os.Setenv("PATHUNI_TEST_SYSTEM_PATHS_ROOT", filepath.Join("testdata", "system_paths"))
+    return getShellSpecificPaths(shell, platformConfig)
 }
 
 func TestHelpers_GetShellSpecificPaths(t *testing.T) {
-	setupTestFilesystem(t)
-	defer cleanupTestFilesystem()
-	
-	tests := []struct {
-		name           string
-		shell          string
-		platformConfig PlatformConfig
-		expectPaths    bool // Whether we expect any paths
-	}{
-		{
-			name:  "bash no special paths",
-			shell: "bash",
-			platformConfig: PlatformConfig{
-				Paths: []interface{}{"/usr/local/bin"},
-			},
-			expectPaths: false,
-		},
-		{
-			name:  "powershell with include_system_paths false",
-			shell: "powershell",
-			platformConfig: PlatformConfig{
-				Paths: []interface{}{"/usr/local/bin"},
-				PowerShell: &ShellConfig{
-					IncludeSystemPaths: false,
-				},
-			},
-			expectPaths: false,
-		},
-		{
-			name:  "powershell with include_system_paths true",
-			shell: "powershell",
-			platformConfig: PlatformConfig{
-				Paths: []interface{}{"/usr/local/bin"},
-				PowerShell: &ShellConfig{
-					IncludeSystemPaths: true,
-				},
-			},
-			expectPaths: true,
-		},
-		{
-			name:  "powershell with nil config",
-			shell: "powershell",
-			platformConfig: PlatformConfig{
-				Paths: []interface{}{"/usr/local/bin"},
+    setupTestFilesystem(t)
+    defer cleanupTestFilesystem()
+    
+    tests := []struct {
+        name           string
+        shell          string
+        platformConfig PlatformConfig
+        expectPaths    bool // Whether we expect any paths
+    }{
+        {
+            name:  "bash no special paths",
+            shell: "bash",
+            platformConfig: PlatformConfig{
+                Paths: []interface{}{"/usr/local/bin"},
+            },
+            expectPaths: false,
+        },
+        {
+            name:  "powershell with include_system_paths false",
+            shell: "powershell",
+            platformConfig: PlatformConfig{
+                Paths: []interface{}{"/usr/local/bin"},
+                PowerShell: &ShellConfig{
+                    IncludeSystemPaths: false,
+                },
+            },
+            expectPaths: false,
+        },
+        {
+            name:  "powershell with include_system_paths true (as=pathuni)",
+            shell: "powershell",
+            platformConfig: PlatformConfig{
+                Paths: []interface{}{"/usr/local/bin"},
+                PowerShell: &ShellConfig{
+                    IncludeSystemPaths: true,
+                    IncludeSystemPathsAs: "pathuni",
+                },
+            },
+            expectPaths: true,
+        },
+        {
+            name:  "powershell include_system_paths true (as=system default)",
+            shell: "powershell",
+            platformConfig: PlatformConfig{
+                Paths: []interface{}{"/usr/local/bin"},
+                PowerShell: &ShellConfig{
+                    IncludeSystemPaths: true,
+                    // IncludeSystemPathsAs omitted -> defaults to system, so no pathuni extras
+                },
+            },
+            expectPaths: false,
+        },
+        {
+            name:  "powershell with nil config",
+            shell: "powershell",
+            platformConfig: PlatformConfig{
+                Paths: []interface{}{"/usr/local/bin"},
 			},
 			expectPaths: false,
 		},
@@ -185,11 +167,11 @@ func TestHelpers_GetShellSpecificPaths(t *testing.T) {
 
 // Test helper function that mimics countValidSystemPaths but uses test data
 func countTestValidSystemPaths(shell string, platformConfig PlatformConfig) int {
-	if shell != "powershell" || platformConfig.PowerShell == nil || !platformConfig.PowerShell.IncludeSystemPaths {
-		return 0
-	}
-	
-	systemPaths, err := getTestSystemPaths()
+    if shell != "powershell" || platformConfig.PowerShell == nil || !platformConfig.PowerShell.IncludeSystemPaths {
+        return 0
+    }
+    os.Setenv("PATHUNI_TEST_SYSTEM_PATHS_ROOT", filepath.Join("testdata", "system_paths"))
+    systemPaths, err := getSystemPaths()
 	if err != nil {
 		return 0
 	}
@@ -351,10 +333,8 @@ func TestHelpers_SystemPathsIntegration(t *testing.T) {
 	setupTestFilesystem(t)
 	defer cleanupTestFilesystem()
 	
-	// This test simulates what getSystemPaths would do with our test data
-	// We can't easily test getSystemPaths directly because it hardcodes /etc/paths
-	
-	testDataDir := filepath.Join("testdata", "system_paths")
+    // This test simulates what getSystemPaths would do with our test data (etc layout)
+    testDataDir := filepath.Join("testdata", "system_paths", "etc")
 	
 	// Read the main paths file
 	pathsFile := filepath.Join(testDataDir, "paths")
@@ -363,8 +343,8 @@ func TestHelpers_SystemPathsIntegration(t *testing.T) {
 		t.Fatalf("Failed to read main paths file: %v", err)
 	}
 	
-	// Read files from paths.d directory
-	pathsDDir := filepath.Join(testDataDir, "paths.d")
+    // Read files from paths.d directory
+    pathsDDir := filepath.Join(testDataDir, "paths.d")
 	entries, err := os.ReadDir(pathsDDir)
 	if err != nil {
 		t.Fatalf("Failed to read paths.d directory: %v", err)

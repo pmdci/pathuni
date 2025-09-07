@@ -57,7 +57,9 @@ func extractPathEntries(paths []interface{}, context string) ([]PathEntry, error
 }
 
 type ShellConfig struct {
-	IncludeSystemPaths bool `yaml:"include_system_paths,omitempty"`
+    IncludeSystemPaths bool `yaml:"include_system_paths,omitempty"`
+    IncludeSystemPathsAs string `yaml:"include_system_paths_as,omitempty"` // "system" (default) or "pathuni"
+    Tags []string `yaml:"tags,omitempty"`
 }
 
 type PathEntry struct {
@@ -182,17 +184,46 @@ func EvaluateConfigWithReasons(configPath, platform, shell string, tagFilter Tag
 		return nil, err
 	}
 
-	// Process platform-specific paths
-	switch platform {
-	case "macOS":
-		if err := processPlatformPaths(config.MacOS, "macos"); err != nil {
-			return nil, err
-		}
-	case "Linux":
-		if err := processPlatformPaths(config.Linux, "linux"); err != nil {
-			return nil, err
-		}
-	}
+    // Process platform-specific paths
+    switch platform {
+    case "macOS":
+        if err := processPlatformPaths(config.MacOS, "macos"); err != nil {
+            return nil, err
+        }
+        // Add PowerShell system paths as pathuni entries when configured
+        psEntries := getPowerShellPathEntries(shell, config.MacOS)
+        for _, entry := range psEntries {
+            // Check existence
+            if _, err := os.Stat(os.ExpandEnv(entry.Path)); os.IsNotExist(err) {
+                result.SkippedPaths = append(result.SkippedPaths, SkippedPath{Path: os.ExpandEnv(entry.Path), Reasons: []SkipReason{{Type: "not_found", Detail: "not found"}}})
+                continue
+            }
+            // Tag filtering
+            effective := entry.GetEffectiveTags(config.MacOS.Tags)
+            if skipReasons := getPathSkipReasons(effective, entry.IsExplicitlyTagged(), tagFilter); skipReasons != nil {
+                result.SkippedPaths = append(result.SkippedPaths, SkippedPath{Path: os.ExpandEnv(entry.Path), Reasons: skipReasons})
+            } else {
+                result.IncludedPaths = append(result.IncludedPaths, os.ExpandEnv(entry.Path))
+            }
+        }
+    case "Linux":
+        if err := processPlatformPaths(config.Linux, "linux"); err != nil {
+            return nil, err
+        }
+        psEntries := getPowerShellPathEntries(shell, config.Linux)
+        for _, entry := range psEntries {
+            if _, err := os.Stat(os.ExpandEnv(entry.Path)); os.IsNotExist(err) {
+                result.SkippedPaths = append(result.SkippedPaths, SkippedPath{Path: os.ExpandEnv(entry.Path), Reasons: []SkipReason{{Type: "not_found", Detail: "not found"}}})
+                continue
+            }
+            effective := entry.GetEffectiveTags(config.Linux.Tags)
+            if skipReasons := getPathSkipReasons(effective, entry.IsExplicitlyTagged(), tagFilter); skipReasons != nil {
+                result.SkippedPaths = append(result.SkippedPaths, SkippedPath{Path: os.ExpandEnv(entry.Path), Reasons: skipReasons})
+            } else {
+                result.IncludedPaths = append(result.IncludedPaths, os.ExpandEnv(entry.Path))
+            }
+        }
+    }
 
 	return result, nil
 }
@@ -356,16 +387,17 @@ func PrintDryRunReport(configPath, platform, shell string, osInferred, shellInfe
             fmt.Printf("%d Pathuni paths included in total\n", len(includedPU))
         }
         // Skipped summary (pathuni only when pruning pathuni)
-        if skippedTotal == 0 {
+        switch skippedTotal {
+        case 0:
             fmt.Printf("0 Skipped paths\n")
-        } else if skippedTotal == 1 {
+        case 1:
             fmt.Printf("1 Pathuni path skipped in total\n")
-        } else {
+        default:
             fmt.Printf("%d Pathuni paths skipped in total\n", skippedTotal)
         }
         return nil
     case "system":
-        sys, err := resolveSystemPaths()
+        sys, err := resolveSystemPathsContext(configPath, platform, shell)
         if err != nil { return err }
         original := append([]string{}, sys...)
         var skippedSys []string
@@ -401,7 +433,7 @@ func PrintDryRunReport(configPath, platform, shell string, osInferred, shellInfe
         if err != nil { return err }
         result, err := EvaluateConfigWithReasons(configPath, platform, shell, tagFilter)
         if err != nil { return err }
-        sys, err := resolveSystemPaths()
+        sys, err := resolveSystemPathsContext(configPath, platform, shell)
         if err != nil { return err }
         originalSys := append([]string{}, sys...)
         var skippedSys []string
@@ -617,8 +649,8 @@ func EvaluateConfigDetailed(configPath, platform, shell string, tagFilter TagFil
 		}
 	}
 	
-	// Add All section paths
-	entries, pathErr := extractPathEntries(cfg.All.Paths, "all section")
+    // Add All section paths
+    entries, pathErr := extractPathEntries(cfg.All.Paths, "all section")
 	if pathErr != nil {
 		return nil, 0, fmt.Errorf("failed to parse config: %w", pathErr)
 	}
@@ -626,38 +658,30 @@ func EvaluateConfigDetailed(configPath, platform, shell string, tagFilter TagFil
 	
 	// Get platform-specific paths
 	switch platform {
-	case "Linux":
-		entries, pathErr := extractPathEntries(cfg.Linux.Paths, "linux section")
-		if pathErr != nil {
-			return nil, 0, fmt.Errorf("failed to parse config: %w", pathErr)
-		}
-		processEntries(entries, cfg.Linux.Tags)
-		
-		// Add shell-specific paths (these are always untagged and included)
-		shellPaths := getShellSpecificPaths(shell, cfg.Linux)
-		shellEntries := make([]PathEntry, len(shellPaths))
-		for i, shellPath := range shellPaths {
-			shellEntries[i] = PathEntry{Path: shellPath, Tags: nil}
-		}
-		processEntries(shellEntries, cfg.Linux.Tags)
-		totalSystemPaths += countValidSystemPaths(shell, cfg.Linux)
-		
-	case "macOS":
-		entries, pathErr := extractPathEntries(cfg.MacOS.Paths, "macos section")
-		if pathErr != nil {
-			return nil, 0, fmt.Errorf("failed to parse config: %w", pathErr)
-		}
-		processEntries(entries, cfg.MacOS.Tags)
-		
-		// Add shell-specific paths (these are always untagged and included)
-		shellPaths := getShellSpecificPaths(shell, cfg.MacOS)
-		shellEntries := make([]PathEntry, len(shellPaths))
-		for i, shellPath := range shellPaths {
-			shellEntries[i] = PathEntry{Path: shellPath, Tags: nil}
-		}
-		processEntries(shellEntries, cfg.MacOS.Tags)
-		totalSystemPaths += countValidSystemPaths(shell, cfg.MacOS)
-	}
+    case "Linux":
+        entries, pathErr := extractPathEntries(cfg.Linux.Paths, "linux section")
+        if pathErr != nil {
+            return nil, 0, fmt.Errorf("failed to parse config: %w", pathErr)
+        }
+        processEntries(entries, cfg.Linux.Tags)
+        
+        // Add PowerShell system paths as pathuni entries when configured
+        psEntries := getPowerShellPathEntries(shell, cfg.Linux)
+        processEntries(psEntries, cfg.Linux.Tags)
+        totalSystemPaths += countValidSystemPaths(shell, cfg.Linux)
+        
+    case "macOS":
+        entries, pathErr := extractPathEntries(cfg.MacOS.Paths, "macos section")
+        if pathErr != nil {
+            return nil, 0, fmt.Errorf("failed to parse config: %w", pathErr)
+        }
+        processEntries(entries, cfg.MacOS.Tags)
+        
+        // Add PowerShell system paths as pathuni entries when configured
+        psEntries := getPowerShellPathEntries(shell, cfg.MacOS)
+        processEntries(psEntries, cfg.MacOS.Tags)
+        totalSystemPaths += countValidSystemPaths(shell, cfg.MacOS)
+    }
 	
 	return pathStatuses, totalSystemPaths, nil
 }
