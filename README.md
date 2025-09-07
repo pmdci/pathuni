@@ -112,7 +112,7 @@ macos:
 - `include_system_paths_as: system` (default):
   - Treats `/etc/paths` and `/etc/paths.d/*` entries as System.
   - Dry-run marks them as `[.]` and counts as System.
-  - Pruned by `-p system|all`; tag filters do not apply.
+  - Prune missing paths with `-p system|all`; tag filters do not apply.
 
 - `include_system_paths_as: pathuni`:
   - Injects those entries on the Pathuni side.

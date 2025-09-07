@@ -158,8 +158,8 @@ func init() {
     // Add flags specific to dump command
     dumpCmd.Flags().StringVarP(&dumpFormat, "format", "f", "plain", "Output format: plain|json|yaml")
 
-    // Add flags specific to init command
-    initCmd.Flags().BoolVarP(&deferEnv, "defer-env", "d", false, "Do not expand current PATH; reference it at evaluation time (init only, requires --scope=full)")
+    // Register defer-env at root so `pathuni -d` works (root defaults to init)
+    rootCmd.PersistentFlags().BoolVarP(&deferEnv, "defer-env", "d", false, "Do not expand current PATH; reference it at evaluation time (init only, requires --scope=full)")
     // Prune flag (persistent) - controls removal of non-existent directories
     rootCmd.PersistentFlags().StringVarP(&prune, "prune", "p", "pathuni", "Prune missing paths: none|pathuni|system|all")
 
