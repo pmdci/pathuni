@@ -313,7 +313,7 @@ func PrintDryRunReport(configPath, platform, shell string, osInferred, shellInfe
     } else {
         fmt.Printf("Shell : %s (specified)\n", shell)
     }
-    fmt.Printf("Scope : %s\n\n", scope)
+    fmt.Printf("Flags : scope=%s, prune=%s\n\n", scope, prune)
 
     // Parse tag filters
     tagFilter, err := parseTagFlags(tagsInclude, tagsExclude)
@@ -323,81 +323,102 @@ func PrintDryRunReport(configPath, platform, shell string, osInferred, shellInfe
 
     switch scope {
     case "pathuni":
-        result, err := EvaluateConfigWithReasons(configPath, platform, shell, tagFilter)
-        if err != nil {
-            return err
+        // Build included respecting prune for pathuni
+        statuses, _, err := EvaluateConfigDetailed(configPath, platform, shell, tagFilter)
+        if err != nil { return err }
+        var includedPU []string
+        if prune == "pathuni" || prune == "all" {
+            for _, st := range statuses { if st.Included { includedPU = append(includedPU, st.Path) } }
+        } else {
+            for _, st := range statuses { if st.PassesFilter { includedPU = append(includedPU, st.Path) } }
         }
-        if len(result.IncludedPaths) > 0 {
-            if len(result.IncludedPaths) == 1 {
-                fmt.Printf("1 Included Path:\n")
-            } else {
-                fmt.Printf("%d Included Paths:\n", len(result.IncludedPaths))
-            }
-            for _, p := range result.IncludedPaths {
-                fmt.Printf("  [+] %s\n", p)
-            }
+        if len(includedPU) > 0 {
+            if len(includedPU) == 1 { fmt.Printf("1 Included Path:\n") } else { fmt.Printf("%d Included Paths:\n", len(includedPU)) }
+            for _, p := range includedPU { fmt.Printf("  [+] %s\n", p) }
             fmt.Printf("\n")
         }
-        if len(result.SkippedPaths) > 0 {
-            if len(result.SkippedPaths) == 1 {
-                fmt.Printf("1 Skipped Path:\n")
-            } else {
-                fmt.Printf("%d Skipped Paths:\n", len(result.SkippedPaths))
+        // Show pathuni skipped reasons only when pruning pathuni side
+        skippedTotal := 0
+        if prune == "pathuni" || prune == "all" {
+            result, err := EvaluateConfigWithReasons(configPath, platform, shell, tagFilter)
+            if err != nil { return err }
+            skippedTotal = len(result.SkippedPaths)
+            if skippedTotal > 0 {
+                if skippedTotal == 1 { fmt.Printf("1 Skipped Path:\n") } else { fmt.Printf("%d Skipped Paths:\n", skippedTotal) }
+                for _, skipped := range result.SkippedPaths { fmt.Printf("%s\n", renderSkippedPath(skipped)) }
+                fmt.Printf("\n")
             }
-            for _, skipped := range result.SkippedPaths {
-                fmt.Printf("%s\n", renderSkippedPath(skipped))
-            }
-            fmt.Printf("\n")
         }
-        fmt.Printf("%d Paths included in total\n", len(result.IncludedPaths))
-        fmt.Printf("%d skipped in total\n", len(result.SkippedPaths))
+        // Included summary (pathuni only) printed at the end
+        if len(includedPU) == 1 {
+            fmt.Printf("1 Pathuni path included in total\n")
+        } else {
+            fmt.Printf("%d Pathuni paths included in total\n", len(includedPU))
+        }
+        // Skipped summary (pathuni only when pruning pathuni)
+        if skippedTotal == 0 {
+            fmt.Printf("0 Skipped paths\n")
+        } else if skippedTotal == 1 {
+            fmt.Printf("1 Pathuni path skipped in total\n")
+        } else {
+            fmt.Printf("%d Pathuni paths skipped in total\n", skippedTotal)
+        }
         return nil
     case "system":
         sys, err := resolveSystemPaths()
-        if err != nil {
-            return err
+        if err != nil { return err }
+        original := append([]string{}, sys...)
+        var skippedSys []string
+        if prune == "system" || prune == "all" {
+            filtered := filterExisting(sys)
+            m := make(map[string]bool); for _, p := range filtered { m[p] = true }
+            for _, p := range original { if !m[p] { skippedSys = append(skippedSys, p) } }
+            sys = filtered
         }
         if len(sys) > 0 {
-            if len(sys) == 1 {
-                fmt.Printf("1 Included Path:\n")
-            } else {
-                fmt.Printf("%d Included Paths:\n", len(sys))
-            }
-            for _, p := range sys {
-                fmt.Printf("  [.] %s\n", p)
-            }
+            if len(sys) == 1 { fmt.Printf("1 Included Path:\n") } else { fmt.Printf("%d Included Paths:\n", len(sys)) }
+            for _, p := range sys { fmt.Printf("  [.] %s\n", p) }
             fmt.Printf("\n")
         }
-        if len(sys) == 1 {
-            fmt.Printf("1 System path included in total\n")
-        } else {
-            fmt.Printf("%d System paths included in total\n", len(sys))
+        // Print skipped block first (details), then summaries at the end
+        if len(skippedSys) > 0 {
+            if len(skippedSys) == 1 { fmt.Printf("1 Skipped Path:\n") } else { fmt.Printf("%d Skipped Paths:\n", len(skippedSys)) }
+            for _, p := range skippedSys { fmt.Printf("  [?] %s (not found)\n", p) }
+            fmt.Printf("\n")
         }
-        fmt.Printf("0 Skipped in total\n")
+        // Summaries at the end
+        if len(sys) == 1 { fmt.Printf("1 System path included in total\n") } else { fmt.Printf("%d System paths included in total\n", len(sys)) }
+        if len(skippedSys) == 0 {
+            fmt.Printf("0 Skipped paths\n")
+        } else if len(skippedSys) == 1 {
+            fmt.Printf("1 System path skipped in total\n")
+        } else {
+            fmt.Printf("%d System paths skipped in total\n", len(skippedSys))
+        }
         return nil
     case "full":
+        statuses, _, err := EvaluateConfigDetailed(configPath, platform, shell, tagFilter)
+        if err != nil { return err }
         result, err := EvaluateConfigWithReasons(configPath, platform, shell, tagFilter)
-        if err != nil {
-            return err
-        }
+        if err != nil { return err }
         sys, err := resolveSystemPaths()
-        if err != nil {
-            return err
+        if err != nil { return err }
+        originalSys := append([]string{}, sys...)
+        var skippedSys []string
+        if prune == "system" || prune == "all" {
+            filtered := filterExisting(sys)
+            m := make(map[string]bool); for _, p := range filtered { m[p] = true }
+            for _, p := range originalSys { if !m[p] { skippedSys = append(skippedSys, p) } }
+            sys = filtered
         }
         seen := make(map[string]bool)
         var included []includedEntry
-        for _, p := range result.IncludedPaths {
-            if !seen[p] {
-                seen[p] = true
-                included = append(included, includedEntry{Path: p, Origin: "pathuni"})
-            }
+        if prune == "pathuni" || prune == "all" {
+            for _, st := range statuses { if st.Included { if !seen[st.Path] { seen[st.Path] = true; included = append(included, includedEntry{Path: st.Path, Origin: "pathuni"}) } } }
+        } else {
+            for _, st := range statuses { if st.PassesFilter { if !seen[st.Path] { seen[st.Path] = true; included = append(included, includedEntry{Path: st.Path, Origin: "pathuni"}) } } }
         }
-        for _, p := range sys {
-            if !seen[p] {
-                seen[p] = true
-                included = append(included, includedEntry{Path: p, Origin: "system"})
-            }
-        }
+        for _, p := range sys { if !seen[p] { seen[p] = true; included = append(included, includedEntry{Path: p, Origin: "system"}) } }
         if len(included) > 0 {
             if len(included) == 1 {
                 fmt.Printf("1 Included Path:\n")
@@ -411,24 +432,46 @@ func PrintDryRunReport(configPath, platform, shell string, osInferred, shellInfe
             }
             fmt.Printf("\n")
         }
-        if len(result.SkippedPaths) > 0 {
-            if len(result.SkippedPaths) == 1 {
-                fmt.Printf("1 Skipped Path:\n")
-            } else {
-                fmt.Printf("%d Skipped Paths:\n", len(result.SkippedPaths))
-            }
-            for _, skipped := range result.SkippedPaths {
-                fmt.Printf("%s\n", renderSkippedPath(skipped))
-            }
+        // Include pathuni skipped reasons only when pruning pathuni
+        var pathuniSkipped []SkippedPath
+        if prune == "pathuni" || prune == "all" {
+            pathuniSkipped = result.SkippedPaths
+        } else {
+            pathuniSkipped = nil
+        }
+        skippedCount := len(pathuniSkipped) + len(skippedSys)
+        if skippedCount > 0 {
+            if skippedCount == 1 { fmt.Printf("1 Skipped Path:\n") } else { fmt.Printf("%d Skipped Paths:\n", skippedCount) }
+            for _, skipped := range pathuniSkipped { fmt.Printf("%s\n", renderSkippedPath(skipped)) }
+            for _, p := range skippedSys { fmt.Printf("  [?] %s (not found)\n", p) }
             fmt.Printf("\n")
         }
         var pathuniCount, systemCount int
         for _, e := range included { if e.Origin == "pathuni" { pathuniCount++ } else { systemCount++ } }
-        fmt.Printf("%d Paths included in total\n", len(included))
-        fmt.Printf("  ├ %d Pathuni path", pathuniCount); if pathuniCount != 1 { fmt.Printf("s") }; fmt.Printf("\n")
-        fmt.Printf("  └ %d System path", systemCount); if systemCount != 1 { fmt.Printf("s") }; fmt.Printf("\n")
-        totalSkipped := len(result.SkippedPaths)
-        if totalSkipped == 0 { fmt.Printf("0 Skipped in total\n") } else { fmt.Printf("%d skipped in total\n", totalSkipped) }
+        // Included summary: single-line when only one origin present; tree when both
+        if pathuniCount > 0 && systemCount > 0 {
+            fmt.Printf("%d Paths included in total\n", len(included))
+            fmt.Printf("  ├ %d Pathuni path", pathuniCount); if pathuniCount != 1 { fmt.Printf("s") }; fmt.Printf("\n")
+            fmt.Printf("  └ %d System path", systemCount); if systemCount != 1 { fmt.Printf("s") }; fmt.Printf("\n")
+        } else if pathuniCount > 0 {
+            if pathuniCount == 1 { fmt.Printf("1 Pathuni path included in total\n") } else { fmt.Printf("%d Pathuni paths included in total\n", pathuniCount) }
+        } else {
+            if systemCount == 1 { fmt.Printf("1 System path included in total\n") } else { fmt.Printf("%d System paths included in total\n", systemCount) }
+        }
+        totalSkipped := skippedCount
+        puCount := len(pathuniSkipped)
+        sysCount := len(skippedSys)
+        if totalSkipped == 0 {
+            fmt.Printf("0 Skipped paths\n")
+        } else if puCount > 0 && sysCount > 0 {
+            if totalSkipped == 1 { fmt.Printf("1 Path skipped in total\n") } else { fmt.Printf("%d Paths skipped in total\n", totalSkipped) }
+            fmt.Printf("  ├ %d Pathuni path", puCount); if puCount != 1 { fmt.Printf("s") }; fmt.Printf("\n")
+            fmt.Printf("  └ %d System path", sysCount); if sysCount != 1 { fmt.Printf("s") }; fmt.Printf("\n")
+        } else if puCount > 0 { // only pathuni skipped
+            if puCount == 1 { fmt.Printf("1 Pathuni path skipped in total\n") } else { fmt.Printf("%d Pathuni paths skipped in total\n", puCount) }
+        } else { // only system skipped
+            if sysCount == 1 { fmt.Printf("1 System path skipped in total\n") } else { fmt.Printf("%d System paths skipped in total\n", sysCount) }
+        }
         return nil
     }
     return fmt.Errorf("invalid scope: %s", scope)
