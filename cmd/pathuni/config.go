@@ -291,6 +291,149 @@ func PrintEvaluationReportV2(configPath, platform, shell string, osInferred, she
 	return nil
 }
 
+// includedEntry represents an included path along with its origin for dry-run
+// scope handling. Origin should be "pathuni" or "system".
+type includedEntry struct {
+    Path   string
+    Origin string
+}
+
+// PrintDryRunReport prints dry-run output respecting the global scope flag.
+// It uses pathuni-first precedence when combining sources under scope=full.
+func PrintDryRunReport(configPath, platform, shell string, osInferred, shellInferred bool, scope string) error {
+    // Header
+    fmt.Printf("Evaluating: %s\n\n", configPath)
+    if osInferred {
+        fmt.Printf("OS    : %s (detected)\n", platform)
+    } else {
+        fmt.Printf("OS    : %s (specified)\n", platform)
+    }
+    if shellInferred {
+        fmt.Printf("Shell : %s (detected)\n", shell)
+    } else {
+        fmt.Printf("Shell : %s (specified)\n", shell)
+    }
+    fmt.Printf("Scope : %s\n\n", scope)
+
+    // Parse tag filters
+    tagFilter, err := parseTagFlags(tagsInclude, tagsExclude)
+    if err != nil {
+        return err
+    }
+
+    switch scope {
+    case "pathuni":
+        result, err := EvaluateConfigWithReasons(configPath, platform, shell, tagFilter)
+        if err != nil {
+            return err
+        }
+        if len(result.IncludedPaths) > 0 {
+            if len(result.IncludedPaths) == 1 {
+                fmt.Printf("1 Included Path:\n")
+            } else {
+                fmt.Printf("%d Included Paths:\n", len(result.IncludedPaths))
+            }
+            for _, p := range result.IncludedPaths {
+                fmt.Printf("  [+] %s\n", p)
+            }
+            fmt.Printf("\n")
+        }
+        if len(result.SkippedPaths) > 0 {
+            if len(result.SkippedPaths) == 1 {
+                fmt.Printf("1 Skipped Path:\n")
+            } else {
+                fmt.Printf("%d Skipped Paths:\n", len(result.SkippedPaths))
+            }
+            for _, skipped := range result.SkippedPaths {
+                fmt.Printf("%s\n", renderSkippedPath(skipped))
+            }
+            fmt.Printf("\n")
+        }
+        fmt.Printf("%d Paths included in total\n", len(result.IncludedPaths))
+        fmt.Printf("%d skipped in total\n", len(result.SkippedPaths))
+        return nil
+    case "system":
+        sys, err := resolveSystemPaths()
+        if err != nil {
+            return err
+        }
+        if len(sys) > 0 {
+            if len(sys) == 1 {
+                fmt.Printf("1 Included Path:\n")
+            } else {
+                fmt.Printf("%d Included Paths:\n", len(sys))
+            }
+            for _, p := range sys {
+                fmt.Printf("  [.] %s\n", p)
+            }
+            fmt.Printf("\n")
+        }
+        if len(sys) == 1 {
+            fmt.Printf("1 System path included in total\n")
+        } else {
+            fmt.Printf("%d System paths included in total\n", len(sys))
+        }
+        fmt.Printf("0 Skipped in total\n")
+        return nil
+    case "full":
+        result, err := EvaluateConfigWithReasons(configPath, platform, shell, tagFilter)
+        if err != nil {
+            return err
+        }
+        sys, err := resolveSystemPaths()
+        if err != nil {
+            return err
+        }
+        seen := make(map[string]bool)
+        var included []includedEntry
+        for _, p := range result.IncludedPaths {
+            if !seen[p] {
+                seen[p] = true
+                included = append(included, includedEntry{Path: p, Origin: "pathuni"})
+            }
+        }
+        for _, p := range sys {
+            if !seen[p] {
+                seen[p] = true
+                included = append(included, includedEntry{Path: p, Origin: "system"})
+            }
+        }
+        if len(included) > 0 {
+            if len(included) == 1 {
+                fmt.Printf("1 Included Path:\n")
+            } else {
+                fmt.Printf("%d Included Paths:\n", len(included))
+            }
+            for _, e := range included {
+                marker := "."
+                if e.Origin == "pathuni" { marker = "+" }
+                fmt.Printf("  [%s] %s\n", marker, e.Path)
+            }
+            fmt.Printf("\n")
+        }
+        if len(result.SkippedPaths) > 0 {
+            if len(result.SkippedPaths) == 1 {
+                fmt.Printf("1 Skipped Path:\n")
+            } else {
+                fmt.Printf("%d Skipped Paths:\n", len(result.SkippedPaths))
+            }
+            for _, skipped := range result.SkippedPaths {
+                fmt.Printf("%s\n", renderSkippedPath(skipped))
+            }
+            fmt.Printf("\n")
+        }
+        var pathuniCount, systemCount int
+        for _, e := range included { if e.Origin == "pathuni" { pathuniCount++ } else { systemCount++ } }
+        fmt.Printf("%d Paths included in total\n", len(included))
+        fmt.Printf("  ├ %d Pathuni path", pathuniCount); if pathuniCount != 1 { fmt.Printf("s") }; fmt.Printf("\n")
+        fmt.Printf("  └ %d System path", systemCount); if systemCount != 1 { fmt.Printf("s") }; fmt.Printf("\n")
+        totalSkipped := len(result.SkippedPaths)
+        if totalSkipped == 0 { fmt.Printf("0 Skipped in total\n") } else { fmt.Printf("%d skipped in total\n", totalSkipped) }
+        return nil
+    }
+    return fmt.Errorf("invalid scope: %s", scope)
+}
+
 type PlatformConfig struct {
 	Tags       []string                `yaml:"tags,omitempty"`      // Platform-level tags for inheritance
 	Paths      []interface{}           `yaml:"paths,omitempty"`     // Can be string or PathEntry
@@ -598,9 +741,9 @@ func PrintEvaluationReport(configPath, platform, shell string, inferred bool) er
 }
 
 func runDryRun() {
-	configPath := getConfigPath()
-	osName, osInferred := getOSName()
-	shellName, shellInferred := getShellName()
+    configPath := getConfigPath()
+    osName, osInferred := getOSName()
+    shellName, shellInferred := getShellName()
 
 	if !osIsValid(osName) {
 		fmt.Fprintf(os.Stderr, "Unsupported OS '%s'. Supported OS: %s\n", osName, strings.Join(osNames(), ", "))
@@ -612,9 +755,9 @@ func runDryRun() {
 		os.Exit(1)
 	}
 
-	err := PrintEvaluationReportV2(configPath, osName, shellName, osInferred, shellInferred)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
-	}
+    err := PrintDryRunReport(configPath, osName, shellName, osInferred, shellInferred, scope)
+    if err != nil {
+        fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+        os.Exit(1)
+    }
 }
