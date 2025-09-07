@@ -219,6 +219,42 @@ pathuni --tags-exclude="MA?OS"     # Matches: macos, MACOS, MacOS, etc.
 
 **Note**: All wildcard matching is case-insensitive, so `Work_*` matches `work_prod`, `WORK_DEV`, etc.
 
+### Scopes, Order and Pruning
+
+Pathuni now supports a global `--scope, -s` flag used in all commands and an optional `--prune, -p` flag:
+
+- `--scope`: `pathuni | system | full`
+  - `pathuni`: only paths from your YAML config (subject to tags and pruning)
+  - `system`: only entries from the current `PATH`
+  - `full`: a merge of pathuni and system, with pathuni-first precedence
+- `--prune`: `none | pathuni | system | all` (default: `pathuni`)
+  - `none`: don’t drop missing paths from either source
+  - `pathuni`: drop missing YAML paths only
+  - `system`: drop missing system `PATH` entries only
+  - `all`: drop missing from both sources
+
+Notes:
+
+- Precedence is pathuni-first in merges. Duplicates are removed with first‑wins.
+- Markers used in dry-run: `[+]` = pathuni, `[.]` = system. Skipped markers: `[-]` = filtered by tags, `[!]` = pathuni not found, `[?]` = system not found (only when pruning system).
+- `init --defer-env, -d` prepends pathuni but references the live `PATH` at evaluation; it’s incompatible with `--prune=system|all` (system isn’t expanded).
+
+#### Quick Reference (Defaults)
+
+- `init`: scope=`full` (pathuni-first), prune=`pathuni`, defer-env=`off`
+- `dry-run`: scope=`full`, prune=`pathuni`
+- `dump`: scope=`full`, prune=`pathuni`
+- Deduplication: always on; first‑wins; `full` merges are pathuni-first
+
+#### Prune Behavior
+
+- `none`: include missing YAML and system entries
+- `pathuni`: drop missing YAML (pathuni) entries only
+- `system`: drop missing system entries only
+- `all`: drop missing entries from both sources
+- Dry-run markers: `[?]` appears only when pruning system; `[!]` appears only when pruning pathuni
+- `init --defer-env`: incompatible with `--prune=system|all`
+
 ### Generate PATH export
 
 ```bash
@@ -232,6 +268,16 @@ pathuni --shell=powershell  # shortcut: global flags work on root command
 
 # Specify OS explicitly (NEW in v0.4.6)
 pathuni init --os=linux
+
+# Choose scope and pruning
+pathuni init -s full            # default, pathuni-first merge
+pathuni init -s full -p none    # include missing YAML + system
+pathuni init -s pathuni -p all  # only existing YAML entries
+
+# Defer environment (prepend pathuni and reference $PATH)
+pathuni init -s full -d         # bash/zsh/sh
+pathuni init -S fish -s full -d # fish
+pathuni init -S powershell -s full -d # PowerShell
 ```
 
 ### Preview what will be included
@@ -242,6 +288,11 @@ pathuni n  # shortcut
 
 # With specific shell
 pathuni dry-run --shell=bash
+
+# With flags
+pathuni dry-run -s full -p none     # pathuni-first; include missing YAML + system
+pathuni dry-run -s full -p system   # include missing YAML; prune missing system
+pathuni dry-run -s full -p all      # prune missing from both
 ```
 
 ### Inspect current PATH
@@ -252,9 +303,9 @@ pathuni dump
 pathuni d  # shortcut
 
 # Dump output scope options
-pathuni dump --scope=pathuni # Show only what pathuni would add
-pathuni dump --scope=system  # Show only existing, path without pathuni additions
-pathuni dump --scope=full    # Show existing path, plus pathuni additions (default)
+pathuni dump --scope=pathuni # Only YAML-derived (respects tags/prune)
+pathuni dump --scope=system  # Only current PATH (respects prune when -p system|all)
+pathuni dump --scope=full    # pathuni-first merge (default), respects prune
 
 # Different output formats
 pathuni dump --format=json
@@ -262,71 +313,83 @@ pathuni dump --format=yaml --scope=pathuni
 pathuni d -f json -s full  # using shortcuts and short flags
 ```
 
-**Example dry-run outputs (NEW improved tree structure in v0.4.5):**
+**Example dry-run outputs (scope + prune):**
 
 ```bash
 # All paths included (no filtering)
-$ pathuni dry-run --os=macos
+$ pathuni dry-run --os=macos -s full -p none
 Evaluating: /Users/you/.config/pathuni/my_paths.yaml
 
 OS    : macOS (specified)
 Shell : zsh (detected)
+Flags : scope=full, prune=none
 
 5 Included Paths:
   [+] /Users/you/.local/bin
   [+] /Users/you/.cargo/bin
   [+] /opt/homebrew/bin
-  [+] /opt/homebrew/sbin
-  [+] /usr/local/special
+  [.] /usr/bin
+  [.] /bin
 
-1 Skipped Path:
-  [!] /Applications/Docker.app/Contents/Resources/bin (not found)
+0 Skipped paths
 
-5 paths included in total
-1 skipped in total
+5 Paths included in total
+  ├ 3 Pathuni paths
+  └ 2 System paths
+0 Skipped paths
 
 # With tag filtering showing detailed skip reasons
-$ pathuni dry-run --tags-include=essential
+$ pathuni dry-run -s full -p system --tags-include=essential
 Evaluating: /Users/you/.config/pathuni/my_paths.yaml
 
 OS    : macOS (detected)
 Shell : zsh (detected)
+Flags : scope=full, prune=system
 
-1 Included Path:
+3 Included Paths:
   [+] /Users/you/.local/bin
+  [.] /usr/bin
+  [.] /bin
 
-4 Skipped Paths:
+3 Skipped Paths:
   [-] /Users/you/.cargo/bin
        └rust,dev != essential
-  [-] /opt/homebrew/bin
-       └mac != essential
   [-] /opt/homebrew/sbin
        └admin != essential
-  [!] /Applications/Docker.app/Contents/Resources/bin (not found)
+  [?] /some/missing/system (not found)
 
-1 path included in total
-4 skipped in total
+3 Paths included in total
+  ├ 1 Pathuni path
+  └ 2 System paths
+3 Paths skipped in total
+  ├ 2 Pathuni paths
+  └ 1 System path
 
 # Complex filtering with inheritance and explicit empty tags,
 # specifying zsh as the shell
-$ pathuni dry-run --tags-exclude=gui --shell=zsh
+$ pathuni dry-run -s full -p all --tags-exclude=gui --shell=zsh
 Evaluating: /Users/you/.config/pathuni/my_paths.yaml
 
 OS    : macOS (detected)
 Shell : zsh (specified)
+Flags : scope=full, prune=all
 
 3 Included Paths:
-  [+] /Users/you/.local/bin     # [base, essential]
-  [+] /Users/you/.cargo/bin     # [rust, dev]
-  [+] /usr/local/special        # [] (explicit empty - immune to gui filter)
+  [+] /Users/you/.local/bin
+  [+] /Users/you/.cargo/bin
+  [.] /usr/bin
 
 2 Skipped Paths:
   [-] /opt/homebrew/bin
        └mac = gui
   [!] /Applications/Docker.app/Contents/Resources/bin (not found)
 
-3 paths included in total
-2 skipped in total
+3 Paths included in total
+  ├ 2 Pathuni paths
+  └ 1 System path
+2 Paths skipped in total
+  ├ 1 Pathuni path
+  └ 1 System path
 ```
 
 **Example dump outputs:**
@@ -345,6 +408,17 @@ PATH:
 
 $ pathuni dump --format=json --scope=full
 {"PATH":["/Users/you/.local/bin","/opt/homebrew/bin",...]}
+
+### Evaluate init output
+
+Evaluate the generated command in your shell initialization:
+
+- bash/zsh/sh
+  - eval "$(pathuni init -s full -d)"
+- fish
+  - eval (pathuni init -S fish -s full -d)
+- PowerShell (Unix)
+  - pathuni init -S powershell -s full -d | Invoke-Expression
 ```
 
 ## Supported Shells
