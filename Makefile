@@ -1,5 +1,5 @@
 # Build variables
-VERSION := $(shell git describe --tags --always --dirty)
+VERSION := $(shell git describe --tags --always --dirty 2>/dev/null | sed 's/^v//' || echo "dev")
 LDFLAGS_COMMON := -s -w -X main.Version=$(VERSION)
 LDFLAGS_RELEASE := $(LDFLAGS_COMMON) -extldflags=-Wl,--strip-all
 BUILD_FLAGS := -trimpath

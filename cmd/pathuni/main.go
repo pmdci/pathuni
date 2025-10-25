@@ -164,7 +164,7 @@ func init() {
     rootCmd.PersistentFlags().StringVarP(&prune, "prune", "p", "pathuni", "Prune missing paths: none|pathuni|system|all")
 
 	// Custom version template
-	rootCmd.SetVersionTemplate(`pathuni ` + Version + `
+	rootCmd.SetVersionTemplate(`pathuni version ` + Version + `
 
 ░█▀█░█▀█░▀█▀░█░█░█░█░█▀█░▀█▀ Copyright (C) 2025 Pedro Innecco
 ░█▀▀░█▀█░░█░░█▀█░█░█░█░█░░█░ <https://pedroinnecco.com>
