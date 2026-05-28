@@ -31,8 +31,6 @@ dist/
 # Internal AI-related stuff
 .claude/
 .llm/
-AGENTS.md
-CLAUDE.md
 
 # OS generated files
 .DS_Store
