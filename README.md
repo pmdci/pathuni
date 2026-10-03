@@ -239,30 +239,7 @@ pathuni --tags-include=dev --tags-exclude=work
 
 ### Wildcard Tag Patterns
 
-You can use glob-style wildcard patterns for flexible tag matching, perfect for hierarchical tag structures:
-
-```bash
-# Wildcard patterns using *
-pathuni --tags-include="work_*"     # Matches: work_prod, work_dev, work_staging
-pathuni --tags-exclude="*_temp"    # Matches: build_temp, cache_temp, any_temp
-
-# Single character wildcards using ?  
-pathuni --tags-include="dev?"       # Matches: dev1, dev2, devA (exactly 4 chars)
-pathuni --tags-exclude="?unt"       # Matches: hunt, punt, bunt (exactly 4 chars)
-
-# Character classes using [...]
-pathuni --tags-include="server[123]"    # Matches: server1, server2, server3
-pathuni --tags-exclude="[abc]*"         # Matches: app, audio, build, cache...
-pathuni --tags-include="[a-z]*"         # Matches: any tag starting with a-z
-pathuni --tags-exclude="[^test]*"       # Matches: any tag NOT starting with t,e,s
-
-# Complex combinations
-pathuni --tags-include="work_*,server*" --tags-exclude="*_temp"
-# Include work_* OR server* patterns, but exclude anything ending in _temp
-
-# Case-insensitive matching  
-pathuni --tags-exclude="MA?OS"     # Matches: macos, MACOS, MacOS, etc.
-```
+You can use glob-style wildcard patterns for flexible tag matching, including for hierarchical tags.
 
 **Supported wildcard syntax:**
 
@@ -274,13 +251,33 @@ pathuni --tags-exclude="MA?OS"     # Matches: macos, MACOS, MacOS, etc.
 
 **Pattern examples:**
 
-- `work_*` → `work_prod`, `work_dev`, `work_staging`
-- `dev?` → `dev1`, `dev2`, `devA` (but not `development`)
-- `server[12]` → `server1`, `server2` (but not `server3`)
-- `*_temp` → `build_temp`, `work_temp`, `cache_temp`
-- `[a-c]*` → `app`, `build`, `cache` (any tag starting with a, b, or c)
+```bash
+# Wildcard patterns using *
+pathuni --tags-include="work_*"    # Matches: work_prod, work_dev, work_staging
+pathuni --tags-exclude="*_temp"    # Matches: build_temp, cache_temp, any_temp
 
-**Note**: All wildcard matching is case-insensitive, so `Work_*` matches `work_prod`, `WORK_DEV`, etc.
+# Single character wildcards using ?  
+pathuni --tags-include="dev?"       # Matches: dev1, dev2, devA (exactly 4 chars)
+pathuni --tags-exclude="?unt"       # Matches: hunt, punt, bunt (exactly 4 chars)
+
+# Character classes using [...]
+pathuni --tags-include="server[123]"    # Matches: server1, server2, server3
+pathuni --tags-exclude="[abc]*"         # Matches: app, build, cache...
+pathuni --tags-include="[a-z]*"         # Matches: any tag starting with a-z
+pathuni --tags-exclude="[^test]*"       # Matches: any tag NOT starting with t,e,s
+
+# Complex combinations
+pathuni --tags-include="work_*,server*" --tags-exclude="*_temp"
+# Include work_* OR server* patterns, but exclude anything ending in _temp
+
+# Case-insensitive matching  
+pathuni --tags-exclude="MACOS"     # Matches: macos, MACOS, MacOS, etc.
+```
+
+**Notes**:
+- Patterns match the whole tag: `dev?` does not match `development`, and `server[123]` does not match `server4`.
+- Repeated characters in a character class have no additional effect: `[^test]*` is equivalent to `[^tes]*`.
+- All tag matching is case-insensitive: `Work_*` matches `work_prod`, `WORK_DEV`, etc.
 
 ### Scopes, Order and Pruning
 
